@@ -76,6 +76,8 @@ class Game:
                 assets['sounds']['crash'] = pygame.mixer.Sound('crash.mp3')
                 assets['sounds']['horn'] = pygame.mixer.Sound('horn.mp3')
                 assets['sounds']['brake'] = pygame.mixer.Sound('breaks.mp3')
+                assets['sounds']['beep'] = pygame.mixer.Sound('beep.mp3')
+                assets['sounds']['go'] = pygame.mixer.Sound('go.mp3')
                 pygame.mixer.music.load('Car Chase.mp3')
             except pygame.error as e:
                 print(f"Warning: Could not load sound files. {e}")
@@ -264,6 +266,9 @@ class Game:
                     self.player = Player(self)
                     self.obstacle = Obstacle(self)
                     self.game_state = 'PLAYING'
+                    if self.assets['sounds']:
+                        pygame.mixer.music.play(-1)
+                        self.engine_channel.play(self.assets['sounds']['engine'], -1)
                 else:
                     self.game_state = 'GAME_OVER'
 
@@ -311,6 +316,8 @@ class Game:
             text_surf, text_rect = self.text_objects(str(i), countdown_font)
             text_rect.center = (self.display_width / 2, self.display_height / 2)
             self.gamedisplays.blit(text_surf, text_rect)
+            if self.assets['sounds']:
+                self.assets['sounds']['beep'].play()
             pygame.display.update()
             time.sleep(1)
 
@@ -319,6 +326,8 @@ class Game:
         text_surf, text_rect = self.text_objects("GO!!!", countdown_font)
         text_rect.center = (self.display_width / 2, self.display_height / 2)
         self.gamedisplays.blit(text_surf, text_rect)
+        if self.assets['sounds']:
+            self.assets['sounds']['go'].play()
         pygame.display.update()
         time.sleep(1)
 
