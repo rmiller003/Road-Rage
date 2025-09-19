@@ -1,386 +1,349 @@
 import pygame
-pygame.init()
-gray=(119,118,110)
-black=(0,0,0)
-red=(255,0,0)
-green=(0,200,0)
-blue=(0,0,200)
-bright_red=(255,0,0)
-bright_green=(0,255,0)
-bright_blue=(0,0,255)
-display_width=800
-display_height=600
+import sys
 import time
 import random
 
+# Constants
+DISPLAY_WIDTH = 800
+DISPLAY_HEIGHT = 600
+CAR_WIDTH = 56
 
-gamedisplays=pygame.display.set_mode((display_width,display_height))
-pygame.display.set_caption("car game")
-clock=pygame.time.Clock()
-carimg=pygame.image.load('car1.jpg')
-backgroundpic=pygame.image.load("download12.jpg")
-yellow_strip=pygame.image.load("yellow strip.jpg")
-strip=pygame.image.load("strip.jpg")
-intro_background=pygame.image.load("background.jpg")
-instruction_background=pygame.image.load("background2.jpg")
-car_width=56
-pause=False
+# Colors
+GRAY = (119, 118, 110)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 200, 0)
+BLUE = (0, 0, 200)
+BRIGHT_RED = (255, 0, 0)
+BRIGHT_GREEN = (0, 255, 0)
+BRIGHT_BLUE = (0, 0, 255)
 
-def intro_loop():
-    intro=True
-    while intro:
-        for event in pygame.event.get():
-            if event.type==pygame.QUIT:
-                pygame.quit()
-                quit()
-                sys.exit()
-        gamedisplays.blit(intro_background,(0,0))
-        largetext=pygame.font.Font('freesansbold.ttf',115)
-        TextSurf,TextRect=text_objects("CAR GAME",largetext)
-        TextRect.center=(400,100)
-        gamedisplays.blit(TextSurf,TextRect)
-        button("START",150,520,100,50,green,bright_green,"play")
-        button("QUIT",550,520,100,50,red,bright_red,"quit")
-        button("INSTRUCTION",300,520,200,50,blue,bright_blue,"intro")
-        pygame.display.update()
-        clock.tick(50)
+class Game:
+    def __init__(self):
+        pygame.init()
+        self.display_width = DISPLAY_WIDTH
+        self.display_height = DISPLAY_HEIGHT
+        self.gamedisplays = pygame.display.set_mode((self.display_width, self.display_height))
+        pygame.display.set_caption("Car Game")
+        self.clock = pygame.time.Clock()
+        self.game_state = 'INTRO'
+        self.pause = False
+        self.background_y = 0
 
+        # Load assets
+        self.assets = self.load_assets()
 
-def button(msg,x,y,w,h,ic,ac,action=None):
-    mouse=pygame.mouse.get_pos()
-    click=pygame.mouse.get_pressed()
-    if x+w>mouse[0]>x and y+h>mouse[1]>y:
-        pygame.draw.rect(gamedisplays,ac,(x,y,w,h))
-        if click[0]==1 and action!=None:
-            if action=="play":
-                countdown()
-            elif action=="quit":
-                pygame.quit()
-                quit()
-                sys.exit()
-            elif action=="intro":
-                introduction()
-            elif action=="menu":
-                intro_loop()
-            elif action=="pause":
-                paused()
-            elif action=="unpause":
-                unpaused()
+    def load_assets(self):
+        assets = {
+            'carimg': pygame.image.load('car1.jpg'),
+            'backgroundpic': pygame.image.load("download12.jpg"),
+            'yellow_strip': pygame.image.load("yellow strip.jpg"),
+            'strip': pygame.image.load("strip.jpg"),
+            'intro_background': pygame.image.load("background.jpg"),
+            'instruction_background': pygame.image.load("background2.jpg"),
+            'obstacle_cars': [
+                pygame.image.load("car.jpg"),
+                pygame.image.load("car1.jpg"),
+                pygame.image.load("car2.jpg"),
+                pygame.image.load("car4.jpg"),
+                pygame.image.load("car5.jpg"),
+                pygame.image.load("car6.jpg"),
+                pygame.image.load("car7.jpg")
+            ]
+        }
+        return assets
 
+    def run(self):
+        while True:
+            if self.game_state == 'INTRO':
+                self.intro_loop()
+            elif self.game_state == 'COUNTDOWN':
+                self.countdown_loop()
+            elif self.game_state == 'PLAYING':
+                self.game_loop()
+            elif self.game_state == 'INSTRUCTIONS':
+                self.introduction()
+            elif self.game_state == 'PAUSED':
+                self.paused_loop()
+            elif self.game_state == 'GAME_OVER':
+                self.game_over_loop()
 
-    else:
-        pygame.draw.rect(gamedisplays,ic,(x,y,w,h))
-    smalltext=pygame.font.Font("freesansbold.ttf",20)
-    textsurf,textrect=text_objects(msg,smalltext)
-    textrect.center=((x+(w/2)),(y+(h/2)))
-    gamedisplays.blit(textsurf,textrect)
+    def toggle_pause(self):
+        if self.game_state == 'PLAYING':
+            self.game_state = 'PAUSED'
+        elif self.game_state == 'PAUSED':
+            self.game_state = 'PLAYING'
 
-
-def introduction():
-    introduction=True
-    while introduction:
-        for event in pygame.event.get():
-            if event.type==pygame.QUIT:
-                pygame.quit()
-                quit()
-                sys.exit()
-        gamedisplays.blit(instruction_background,(0,0))
-        largetext=pygame.font.Font('freesansbold.ttf',80)
-        smalltext=pygame.font.Font('freesansbold.ttf',20)
-        mediumtext=pygame.font.Font('freesansbold.ttf',40)
-        textSurf,textRect=text_objects("This is an car game in which you need dodge the coming cars",smalltext)
-        textRect.center=((350),(200))
-        TextSurf,TextRect=text_objects("INSTRUCTION",largetext)
-        TextRect.center=((400),(100))
-        gamedisplays.blit(TextSurf,TextRect)
-        gamedisplays.blit(textSurf,textRect)
-        stextSurf,stextRect=text_objects("ARROW LEFT : LEFT TURN",smalltext)
-        stextRect.center=((150),(400))
-        hTextSurf,hTextRect=text_objects("ARROW RIGHT : RIGHT TURN" ,smalltext)
-        hTextRect.center=((150),(450))
-        atextSurf,atextRect=text_objects("A : ACCELERATOR",smalltext)
-        atextRect.center=((150),(500))
-        rtextSurf,rtextRect=text_objects("B : BRAKE ",smalltext)
-        rtextRect.center=((150),(550))
-        ptextSurf,ptextRect=text_objects("P : PAUSE  ",smalltext)
-        ptextRect.center=((150),(350))
-        sTextSurf,sTextRect=text_objects("CONTROLS",mediumtext)
-        sTextRect.center=((350),(300))
-        gamedisplays.blit(sTextSurf,sTextRect)
-        gamedisplays.blit(stextSurf,stextRect)
-        gamedisplays.blit(hTextSurf,hTextRect)
-        gamedisplays.blit(atextSurf,atextRect)
-        gamedisplays.blit(rtextSurf,rtextRect)
-        gamedisplays.blit(ptextSurf,ptextRect)
-        button("BACK",600,450,100,50,blue,bright_blue,"menu")
-        pygame.display.update()
-        clock.tick(30)
-
-def paused():
-    global pause
-
-    while pause:
+    def paused_loop(self):
+        while self.game_state == 'PAUSED':
             for event in pygame.event.get():
-                if event.type==pygame.QUIT:
-                    pygame.quit()
-                    quit()
-                    sys.exit()
-            gamedisplays.blit(instruction_background,(0,0))
-            largetext=pygame.font.Font('freesansbold.ttf',115)
-            TextSurf,TextRect=text_objects("PAUSED",largetext)
-            TextRect.center=((display_width/2),(display_height/2))
-            gamedisplays.blit(TextSurf,TextRect)
-            button("CONTINUE",150,450,150,50,green,bright_green,"unpause")
-            button("RESTART",350,450,150,50,blue,bright_blue,"play")
-            button("MAIN MENU",550,450,200,50,red,bright_red,"menu")
+                if event.type == pygame.QUIT:
+                    self.quit_game()
+
+            self.gamedisplays.blit(self.assets['instruction_background'], (0, 0))
+            large_text = pygame.font.Font('freesansbold.ttf', 115)
+            text_surf, text_rect = self.text_objects("PAUSED", large_text)
+            text_rect.center = (self.display_width / 2, self.display_height / 2)
+            self.gamedisplays.blit(text_surf, text_rect)
+
+            self.button("CONTINUE", 150, 450, 150, 50, GREEN, BRIGHT_GREEN, self.toggle_pause)
+            self.button("MAIN MENU", 550, 450, 200, 50, RED, BRIGHT_RED, self.back_to_menu)
+
             pygame.display.update()
-            clock.tick(30)
+            self.clock.tick(30)
 
-def unpaused():
-    global pause
-    pause=False
-
-
-def countdown_background():
-    font=pygame.font.SysFont(None,25)
-    x=(display_width*0.45)
-    y=(display_height*0.8)
-    gamedisplays.blit(backgroundpic,(0,0))
-    gamedisplays.blit(backgroundpic,(0,200))
-    gamedisplays.blit(backgroundpic,(0,400))
-    gamedisplays.blit(backgroundpic,(700,0))
-    gamedisplays.blit(backgroundpic,(700,200))
-    gamedisplays.blit(backgroundpic,(700,400))
-    gamedisplays.blit(yellow_strip,(400,100))
-    gamedisplays.blit(yellow_strip,(400,200))
-    gamedisplays.blit(yellow_strip,(400,300))
-    gamedisplays.blit(yellow_strip,(400,400))
-    gamedisplays.blit(yellow_strip,(400,100))
-    gamedisplays.blit(yellow_strip,(400,500))
-    gamedisplays.blit(yellow_strip,(400,0))
-    gamedisplays.blit(yellow_strip,(400,600))
-    gamedisplays.blit(strip,(120,200))
-    gamedisplays.blit(strip,(120,0))
-    gamedisplays.blit(strip,(120,100))
-    gamedisplays.blit(strip,(680,100))
-    gamedisplays.blit(strip,(680,0))
-    gamedisplays.blit(strip,(680,200))
-    gamedisplays.blit(carimg,(x,y))
-    text=font.render("DODGED: 0",True, black)
-    score=font.render("SCORE: 0",True,red)
-    gamedisplays.blit(text,(0,50))
-    gamedisplays.blit(score,(0,30))
-    button("PAUSE",650,0,150,50,blue,bright_blue,"pause")
-
-def countdown():
-    countdown=True
-
-    while countdown:
+    def intro_loop(self):
+        intro = True
+        while intro:
             for event in pygame.event.get():
-                if event.type==pygame.QUIT:
-                    pygame.quit()
-                    quit()
-                    sys.exit()
-            gamedisplays.fill(gray)
-            countdown_background()
-            largetext=pygame.font.Font('freesansbold.ttf',115)
-            TextSurf,TextRect=text_objects("3",largetext)
-            TextRect.center=((display_width/2),(display_height/2))
-            gamedisplays.blit(TextSurf,TextRect)
+                if event.type == pygame.QUIT:
+                    self.quit_game()
+
+            self.gamedisplays.blit(self.assets['intro_background'], (0, 0))
+            large_text = pygame.font.Font('freesansbold.ttf', 115)
+            text_surf, text_rect = self.text_objects("CAR GAME", large_text)
+            text_rect.center = (400, 100)
+            self.gamedisplays.blit(text_surf, text_rect)
+
+            self.button("START", 150, 520, 100, 50, GREEN, BRIGHT_GREEN, self.start_game)
+            self.button("QUIT", 550, 520, 100, 50, RED, BRIGHT_RED, self.quit_game)
+            self.button("INSTRUCTION", 300, 520, 200, 50, BLUE, BRIGHT_BLUE, self.show_instructions)
+
             pygame.display.update()
-            clock.tick(1)
-            gamedisplays.fill(gray)
-            countdown_background()
-            largetext=pygame.font.Font('freesansbold.ttf',115)
-            TextSurf,TextRect=text_objects("2",largetext)
-            TextRect.center=((display_width/2),(display_height/2))
-            gamedisplays.blit(TextSurf,TextRect)
+            self.clock.tick(50)
+
+    def introduction(self):
+        introduction = True
+        while introduction:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.quit_game()
+
+            self.gamedisplays.blit(self.assets['instruction_background'], (0, 0))
+            large_text = pygame.font.Font('freesansbold.ttf', 80)
+            small_text = pygame.font.Font('freesansbold.ttf', 20)
+            medium_text = pygame.font.Font('freesansbold.ttf', 40)
+
+            text_surf, text_rect = self.text_objects("This is a car game in which you need to dodge the coming cars", small_text)
+            text_rect.center = ((350), (200))
+            self.gamedisplays.blit(text_surf, text_rect)
+
+            text_surf, text_rect = self.text_objects("INSTRUCTION", large_text)
+            text_rect.center = ((400), (100))
+            self.gamedisplays.blit(text_surf, text_rect)
+
+            stext_surf, stext_rect = self.text_objects("ARROW LEFT : LEFT TURN", small_text)
+            stext_rect.center = ((150), (400))
+            self.gamedisplays.blit(stext_surf, stext_rect)
+
+            htext_surf, htext_rect = self.text_objects("ARROW RIGHT : RIGHT TURN", small_text)
+            htext_rect.center = ((150), (450))
+            self.gamedisplays.blit(htext_surf, htext_rect)
+
+            atext_surf, atext_rect = self.text_objects("A : ACCELERATOR", small_text)
+            atext_rect.center = ((150), (500))
+            self.gamedisplays.blit(atext_surf, atext_rect)
+
+            rtext_surf, rtext_rect = self.text_objects("B : BRAKE ", small_text)
+            rtext_rect.center = ((150), (550))
+            self.gamedisplays.blit(rtext_surf, rtext_rect)
+
+            ptext_surf, ptext_rect = self.text_objects("P : PAUSE", small_text)
+            ptext_rect.center = ((150), (350))
+            self.gamedisplays.blit(ptext_surf, ptext_rect)
+
+            stext_surf, stext_rect = self.text_objects("CONTROLS", medium_text)
+            stext_rect.center = ((350), (300))
+            self.gamedisplays.blit(stext_surf, stext_rect)
+
+            self.button("BACK", 600, 450, 100, 50, BLUE, BRIGHT_BLUE, self.back_to_menu)
+
             pygame.display.update()
-            clock.tick(1)
-            gamedisplays.fill(gray)
-            countdown_background()
-            largetext=pygame.font.Font('freesansbold.ttf',115)
-            TextSurf,TextRect=text_objects("1",largetext)
-            TextRect.center=((display_width/2),(display_height/2))
-            gamedisplays.blit(TextSurf,TextRect)
+            self.clock.tick(30)
+
+    def game_loop(self):
+        self.player = Player(self)
+        self.obstacle = Obstacle(self)
+
+        while self.game_state == 'PLAYING':
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.quit_game()
+                self.player.handle_event(event)
+
+            self.player.update()
+            self.obstacle.update()
+            self.background_y += self.obstacle.speed
+
+            self.draw_background()
+            self.player.draw()
+            self.obstacle.draw()
+            self.score_system(self.obstacle.passed, self.obstacle.score)
+            self.button("PAUSE", 650, 0, 150, 50, BLUE, BRIGHT_BLUE, self.toggle_pause)
+
+            if self.check_crash():
+                self.game_state = 'GAME_OVER'
+
             pygame.display.update()
-            clock.tick(1)
-            gamedisplays.fill(gray)
-            countdown_background()
-            largetext=pygame.font.Font('freesansbold.ttf',115)
-            TextSurf,TextRect=text_objects("GO!!!",largetext)
-            TextRect.center=((display_width/2),(display_height/2))
-            gamedisplays.blit(TextSurf,TextRect)
+            self.clock.tick(60)
+
+    def game_over_loop(self):
+        while self.game_state == 'GAME_OVER':
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.quit_game()
+
+            self.gamedisplays.blit(self.assets['intro_background'], (0, 0))
+            large_text = pygame.font.Font('freesansbold.ttf', 115)
+            text_surf, text_rect = self.text_objects("GAME OVER", large_text)
+            text_rect.center = (self.display_width / 2, self.display_height / 2)
+            self.gamedisplays.blit(text_surf, text_rect)
+
+            self.button("RESTART", 150, 450, 150, 50, GREEN, BRIGHT_GREEN, self.start_game)
+            self.button("MAIN MENU", 550, 450, 200, 50, RED, BRIGHT_RED, self.back_to_menu)
+
             pygame.display.update()
-            clock.tick(1)
-            game_loop()
+            self.clock.tick(30)
 
-def obstacle(obs_startx,obs_starty,obs):
-    if obs==0:
-        obs_pic=pygame.image.load("car.jpg")
-    elif obs==1:
-        obs_pic=pygame.image.load("car1.jpg")
-    elif obs==2:
-        obs_pic=pygame.image.load("car2.jpg")
-    elif obs==3:
-        obs_pic=pygame.image.load("car4.jpg")
-    elif obs==4:
-        obs_pic=pygame.image.load("car5.jpg")
-    elif obs==5:
-        obs_pic=pygame.image.load("car6.jpg")
-    elif obs==6:
-        obs_pic=pygame.image.load("car7.jpg")
-    gamedisplays.blit(obs_pic,(obs_startx,obs_starty))
+    def start_game(self):
+        self.game_state = 'COUNTDOWN'
 
-def score_system(passed,score):
-    font=pygame.font.SysFont(None,25)
-    text=font.render("Passed"+str(passed),True,black)
-    score=font.render("Score"+str(score),True,red)
-    gamedisplays.blit(text,(0,50))
-    gamedisplays.blit(score,(0,30))
+    def countdown_loop(self):
+        self.gamedisplays.fill(GRAY)
+        self.draw_background()
 
+        countdown_font = pygame.font.Font('freesansbold.ttf', 115)
+        for i in range(3, 0, -1):
+            self.gamedisplays.fill(GRAY)
+            self.draw_background()
+            text_surf, text_rect = self.text_objects(str(i), countdown_font)
+            text_rect.center = (self.display_width / 2, self.display_height / 2)
+            self.gamedisplays.blit(text_surf, text_rect)
+            pygame.display.update()
+            time.sleep(1)
 
-def text_objects(text,font):
-    textsurface=font.render(text,True,black)
-    return textsurface,textsurface.get_rect()
-
-def message_display(text):
-    largetext=pygame.font.Font("freesansbold.ttf",80)
-    textsurf,textrect=text_objects(text,largetext)
-    textrect.center=((display_width/2),(display_height/2))
-    gamedisplays.blit(textsurf,textrect)
-    pygame.display.update()
-    time.sleep(3)
-    game_loop()
-
-
-def crash():
-    message_display("YOU CRASHED")
-
-
-def background():
-    gamedisplays.blit(backgroundpic,(0,0))
-    gamedisplays.blit(backgroundpic,(0,200))
-    gamedisplays.blit(backgroundpic,(0,400))
-    gamedisplays.blit(backgroundpic,(700,0))
-    gamedisplays.blit(backgroundpic,(700,200))
-    gamedisplays.blit(backgroundpic,(700,400))
-    gamedisplays.blit(yellow_strip,(400,0))
-    gamedisplays.blit(yellow_strip,(400,100))
-    gamedisplays.blit(yellow_strip,(400,200))
-    gamedisplays.blit(yellow_strip,(400,300))
-    gamedisplays.blit(yellow_strip,(400,400))
-    gamedisplays.blit(yellow_strip,(400,500))
-    gamedisplays.blit(strip,(120,0))
-    gamedisplays.blit(strip,(120,100))
-    gamedisplays.blit(strip,(120,200))
-    gamedisplays.blit(strip,(680,0))
-    gamedisplays.blit(strip,(680,100))
-    gamedisplays.blit(strip,(680,200))
-
-def car(x,y):
-    gamedisplays.blit(carimg,(x,y))
-
-def game_loop():
-    global pause
-    x=(display_width*0.45)
-    y=(display_height*0.8)
-    x_change=0
-    obstacle_speed=9
-    obs=0
-    y_change=0
-    obs_startx=random.randrange(200,(display_width-200))
-    obs_starty=-750
-    obs_width=56
-    obs_height=125
-    passed=0
-    level=0
-    score=0
-    y2=7
-    fps=120
-
-    bumped=False
-    while not bumped:
-        for event in pygame.event.get():
-            if event.type==pygame.QUIT:
-                pygame.quit()
-                quit()
-
-            if event.type==pygame.KEYDOWN:
-                if event.key==pygame.K_LEFT:
-                    x_change=-5
-                if event.key==pygame.K_RIGHT:
-                    x_change=5
-                if event.key==pygame.K_a:
-                    obstacle_speed+=2
-                if event.key==pygame.K_b:
-                    obstacle_speed-=2
-            if event.type==pygame.KEYUP:
-                if event.key==pygame.K_LEFT or event.key==pygame.K_RIGHT:
-                    x_change=0
-
-        x+=x_change
-        pause=True
-        gamedisplays.fill(gray)
-
-        rel_y=y2%backgroundpic.get_rect().width
-        gamedisplays.blit(backgroundpic,(0,rel_y-backgroundpic.get_rect().width))
-        gamedisplays.blit(backgroundpic,(700,rel_y-backgroundpic.get_rect().width))
-        if rel_y<800:
-            gamedisplays.blit(backgroundpic,(0,rel_y))
-            gamedisplays.blit(backgroundpic,(700,rel_y))
-            gamedisplays.blit(yellow_strip,(400,rel_y))
-            gamedisplays.blit(yellow_strip,(400,rel_y+100))
-            gamedisplays.blit(yellow_strip,(400,rel_y+200))
-            gamedisplays.blit(yellow_strip,(400,rel_y+300))
-            gamedisplays.blit(yellow_strip,(400,rel_y+400))
-            gamedisplays.blit(yellow_strip,(400,rel_y+500))
-            gamedisplays.blit(yellow_strip,(400,rel_y-100))
-            gamedisplays.blit(strip,(120,rel_y-200))
-            gamedisplays.blit(strip,(120,rel_y+20))
-            gamedisplays.blit(strip,(120,rel_y+30))
-            gamedisplays.blit(strip,(680,rel_y-100))
-            gamedisplays.blit(strip,(680,rel_y+20))
-            gamedisplays.blit(strip,(680,rel_y+30))
-
-        y2+=obstacle_speed
-
-
-
-
-        obs_starty-=(obstacle_speed/4)
-        obstacle(obs_startx,obs_starty,obs)
-        obs_starty+=obstacle_speed
-        car(x,y)
-        score_system(passed,score)
-        if x>690-car_width or x<110:
-            crash()
-        if x>display_width-(car_width+110) or x<110:
-            crash()
-        if obs_starty>display_height:
-            obs_starty=0-obs_height
-            obs_startx=random.randrange(170,(display_width-170))
-            obs=random.randrange(0,7)
-            passed=passed+1
-            score=passed*10
-            if int(passed)%10==0:
-                level=level+1
-                obstacle_speed+2
-                largetext=pygame.font.Font("freesansbold.ttf",80)
-                textsurf,textrect=text_objects("LEVEL"+str(level),largetext)
-                textrect.center=((display_width/2),(display_height/2))
-                gamedisplays.blit(textsurf,textrect)
-                pygame.display.update()
-                time.sleep(3)
-
-
-        if y<obs_starty+obs_height:
-            if x > obs_startx and x < obs_startx + obs_width or x+car_width > obs_startx and x+car_width < obs_startx+obs_width:
-                crash()
-        button("Pause",650,0,150,50,blue,bright_blue,"pause")
+        self.gamedisplays.fill(GRAY)
+        self.draw_background()
+        text_surf, text_rect = self.text_objects("GO!!!", countdown_font)
+        text_rect.center = (self.display_width / 2, self.display_height / 2)
+        self.gamedisplays.blit(text_surf, text_rect)
         pygame.display.update()
-        clock.tick(60)
-intro_loop()
-game_loop()
-pygame.quit()
-quit()
+        time.sleep(1)
+
+        self.game_state = 'PLAYING'
+
+    def show_instructions(self):
+        self.game_state = 'INSTRUCTIONS'
+
+    def back_to_menu(self):
+        self.game_state = 'INTRO'
+
+    def quit_game(self):
+        pygame.quit()
+        sys.exit()
+
+    def button(self, msg, x, y, w, h, ic, ac, action=None):
+        mouse = pygame.mouse.get_pos()
+        click = pygame.mouse.get_pressed()
+
+        if x + w > mouse[0] > x and y + h > mouse[1] > y:
+            pygame.draw.rect(self.gamedisplays, ac, (x, y, w, h))
+            if click[0] == 1 and action is not None:
+                action()
+        else:
+            pygame.draw.rect(self.gamedisplays, ic, (x, y, w, h))
+
+        small_text = pygame.font.Font("freesansbold.ttf", 20)
+        text_surf, text_rect = self.text_objects(msg, small_text)
+        text_rect.center = ((x + (w / 2)), (y + (h / 2)))
+        self.gamedisplays.blit(text_surf, text_rect)
+
+    def text_objects(self, text, font):
+        text_surface = font.render(text, True, BLACK)
+        return text_surface, text_surface.get_rect()
+
+    def score_system(self, passed, score):
+        font = pygame.font.SysFont(None, 25)
+        text = font.render("Passed: " + str(passed), True, BLACK)
+        score_text = font.render("Score: " + str(score), True, RED)
+        self.gamedisplays.blit(text, (0, 50))
+        self.gamedisplays.blit(score_text, (0, 30))
+
+    def draw_background(self):
+        self.gamedisplays.fill(GRAY)
+        rel_y = self.background_y % self.assets['backgroundpic'].get_rect().height
+        self.gamedisplays.blit(self.assets['backgroundpic'], (0, rel_y - self.assets['backgroundpic'].get_rect().height))
+        self.gamedisplays.blit(self.assets['backgroundpic'], (700, rel_y - self.assets['backgroundpic'].get_rect().height))
+        if rel_y < self.display_height:
+            self.gamedisplays.blit(self.assets['backgroundpic'], (0, rel_y))
+            self.gamedisplays.blit(self.assets['backgroundpic'], (700, rel_y))
+
+        # Draw strips
+        rel_y_strip = self.background_y % self.assets['yellow_strip'].get_rect().height
+        for i in range(-2, self.display_height // self.assets['yellow_strip'].get_rect().height + 2):
+            self.gamedisplays.blit(self.assets['yellow_strip'], (400, rel_y_strip + i * self.assets['yellow_strip'].get_rect().height))
+            self.gamedisplays.blit(self.assets['strip'], (120, rel_y_strip + i * self.assets['strip'].get_rect().height))
+            self.gamedisplays.blit(self.assets['strip'], (680, rel_y_strip + i * self.assets['strip'].get_rect().height))
+
+    def check_crash(self):
+        if self.player.x > 690 - CAR_WIDTH or self.player.x < 110:
+            return True
+        if self.player.y < self.obstacle.y + self.obstacle.height:
+            if self.player.x > self.obstacle.x and self.player.x < self.obstacle.x + self.obstacle.width or \
+               self.player.x + CAR_WIDTH > self.obstacle.x and self.player.x + CAR_WIDTH < self.obstacle.x + self.obstacle.width:
+                return True
+        return False
+
+class Player:
+    def __init__(self, game):
+        self.game = game
+        self.x = (game.display_width * 0.45)
+        self.y = (game.display_height * 0.8)
+        self.x_change = 0
+
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_LEFT:
+                self.x_change = -5
+            elif event.key == pygame.K_RIGHT:
+                self.x_change = 5
+            elif event.key == pygame.K_p:
+                self.game.toggle_pause()
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
+                self.x_change = 0
+
+    def update(self):
+        self.x += self.x_change
+
+    def draw(self):
+        self.game.gamedisplays.blit(self.game.assets['carimg'], (self.x, self.y))
+
+class Obstacle:
+    def __init__(self, game):
+        self.game = game
+        self.x = random.randrange(200, (game.display_width - 200))
+        self.y = -750
+        self.speed = 9
+        self.width = 56
+        self.height = 125
+        self.passed = 0
+        self.score = 0
+        self.image = random.choice(self.game.assets['obstacle_cars'])
+
+    def update(self):
+        self.y += self.speed
+        if self.y > self.game.display_height:
+            self.y = 0 - self.height
+            self.x = random.randrange(170, (self.game.display_width - 170))
+            self.image = random.choice(self.game.assets['obstacle_cars'])
+            self.passed += 1
+            self.score = self.passed * 10
+
+    def draw(self):
+        self.game.gamedisplays.blit(self.image, (self.x, self.y))
+
+
+if __name__ == '__main__':
+    game = Game()
+    game.run()
