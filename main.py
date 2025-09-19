@@ -29,6 +29,8 @@ class Game:
         self.game_state = 'INTRO'
         self.pause = False
         self.background_y = 0
+        self.lives = 3
+        self.level = 1
 
         # Load assets
         self.assets = self.load_assets()
@@ -65,8 +67,39 @@ class Game:
                 self.introduction()
             elif self.game_state == 'PAUSED':
                 self.paused_loop()
+            elif self.game_state == 'CRASHED':
+                self.crashed_loop()
+            elif self.game_state == 'LEVEL_UP':
+                self.level_up_loop()
             elif self.game_state == 'GAME_OVER':
                 self.game_over_loop()
+
+    def level_up_loop(self):
+        self.gamedisplays.blit(self.assets['instruction_background'], (0, 0))
+        large_text = pygame.font.Font('freesansbold.ttf', 115)
+        text_surf, text_rect = self.text_objects("LEVEL " + str(self.level), large_text)
+        text_rect.center = (self.display_width / 2, self.display_height / 2)
+        self.gamedisplays.blit(text_surf, text_rect)
+
+        pygame.display.update()
+        time.sleep(2)
+
+        self.game_state = 'PLAYING'
+
+    def crashed_loop(self):
+        self.gamedisplays.blit(self.assets['instruction_background'], (0, 0))
+        large_text = pygame.font.Font('freesansbold.ttf', 115)
+        text_surf, text_rect = self.text_objects("YOU CRASHED", large_text)
+        text_rect.center = (self.display_width / 2, self.display_height / 2)
+        self.gamedisplays.blit(text_surf, text_rect)
+
+        pygame.display.update()
+        time.sleep(2)
+
+        self.player = Player(self)
+        self.obstacle = Obstacle(self)
+
+        self.game_state = 'COUNTDOWN'
 
     def toggle_pause(self):
         if self.game_state == 'PLAYING':
@@ -176,11 +209,15 @@ class Game:
             self.draw_background()
             self.player.draw()
             self.obstacle.draw()
-            self.score_system(self.obstacle.passed, self.obstacle.score)
+            self.display_hud(self.obstacle.passed, self.obstacle.score)
             self.button("PAUSE", 650, 0, 150, 50, BLUE, BRIGHT_BLUE, self.toggle_pause)
 
             if self.check_crash():
-                self.game_state = 'GAME_OVER'
+                self.lives -= 1
+                if self.lives > 0:
+                    self.game_state = 'CRASHED'
+                else:
+                    self.game_state = 'GAME_OVER'
 
             pygame.display.update()
             self.clock.tick(60)
@@ -260,12 +297,17 @@ class Game:
         text_surface = font.render(text, True, BLACK)
         return text_surface, text_surface.get_rect()
 
-    def score_system(self, passed, score):
+    def display_hud(self, passed, score):
         font = pygame.font.SysFont(None, 25)
-        text = font.render("Passed: " + str(passed), True, BLACK)
+
+        passed_text = font.render("Passed: " + str(passed), True, BLACK)
+        self.gamedisplays.blit(passed_text, (0, 50))
+
         score_text = font.render("Score: " + str(score), True, RED)
-        self.gamedisplays.blit(text, (0, 50))
         self.gamedisplays.blit(score_text, (0, 30))
+
+        lives_text = font.render("Lives: " + str(self.lives), True, BLACK)
+        self.gamedisplays.blit(lives_text, (0, 70))
 
     def draw_background(self):
         self.gamedisplays.fill(GRAY)
@@ -337,6 +379,10 @@ class Obstacle:
             self.image = random.choice(self.game.assets['obstacle_cars'])
             self.passed += 1
             self.score = self.passed * 10
+            if self.passed % 10 == 0:
+                self.game.level += 1
+                self.speed += 2
+                self.game.game_state = 'LEVEL_UP'
 
     def draw(self):
         self.game.gamedisplays.blit(self.image, (self.x, self.y))
