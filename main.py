@@ -24,7 +24,7 @@ class Game:
         self.display_width = DISPLAY_WIDTH
         self.display_height = DISPLAY_HEIGHT
         self.gamedisplays = pygame.display.set_mode((self.display_width, self.display_height))
-        pygame.display.set_caption("Car Game")
+        pygame.display.set_caption("Road Rage")
         self.clock = pygame.time.Clock()
         self.game_state = 'INTRO'
         self.pause = False
@@ -93,15 +93,14 @@ class Game:
             self.clock.tick(30)
 
     def intro_loop(self):
-        intro = True
-        while intro:
+        while self.game_state == 'INTRO':
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.quit_game()
 
             self.gamedisplays.blit(self.assets['intro_background'], (0, 0))
             large_text = pygame.font.Font('freesansbold.ttf', 115)
-            text_surf, text_rect = self.text_objects("CAR GAME", large_text)
+            text_surf, text_rect = self.text_objects("ROAD RAGE", large_text)
             text_rect.center = (400, 100)
             self.gamedisplays.blit(text_surf, text_rect)
 
@@ -113,8 +112,7 @@ class Game:
             self.clock.tick(50)
 
     def introduction(self):
-        introduction = True
-        while introduction:
+        while self.game_state == 'INSTRUCTIONS':
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.quit_game()
