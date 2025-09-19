@@ -31,6 +31,7 @@ class Game:
         self.background_y = 0
         self.lives = 3
         self.level = 1
+        self.crash_time = 0
 
         # Load assets
         self.assets = self.load_assets()
@@ -87,19 +88,14 @@ class Game:
         self.game_state = 'PLAYING'
 
     def crashed_loop(self):
-        self.gamedisplays.blit(self.assets['instruction_background'], (0, 0))
-        large_text = pygame.font.Font('freesansbold.ttf', 115)
-        text_surf, text_rect = self.text_objects("YOU CRASHED", large_text)
-        text_rect.center = (self.display_width / 2, self.display_height / 2)
-        self.gamedisplays.blit(text_surf, text_rect)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.quit_game()
 
-        pygame.display.update()
-        time.sleep(2)
-
-        self.player = Player(self)
-        self.obstacle = Obstacle(self)
-
-        self.game_state = 'COUNTDOWN'
+        if pygame.time.get_ticks() - self.crash_time > 2000:
+            self.player = Player(self)
+            self.obstacle = Obstacle(self)
+            self.game_state = 'COUNTDOWN'
 
     def toggle_pause(self):
         if self.game_state == 'PLAYING':
@@ -171,11 +167,11 @@ class Game:
             htext_rect.center = ((150), (450))
             self.gamedisplays.blit(htext_surf, htext_rect)
 
-            atext_surf, atext_rect = self.text_objects("A : ACCELERATOR", small_text)
+            atext_surf, atext_rect = self.text_objects("ARROW UP : ACCELERATOR", small_text)
             atext_rect.center = ((150), (500))
             self.gamedisplays.blit(atext_surf, atext_rect)
 
-            rtext_surf, rtext_rect = self.text_objects("B : BRAKE ", small_text)
+            rtext_surf, rtext_rect = self.text_objects("ARROW DOWN : BRAKE ", small_text)
             rtext_rect.center = ((150), (550))
             self.gamedisplays.blit(rtext_surf, rtext_rect)
 
@@ -209,13 +205,20 @@ class Game:
             self.draw_background()
             self.player.draw()
             self.obstacle.draw()
-            self.display_hud(self.obstacle.passed, self.obstacle.score)
+            self.display_hud(self.obstacle.passed, self.obstacle.score, self.obstacle.speed)
             self.button("PAUSE", 650, 0, 150, 50, BLUE, BRIGHT_BLUE, self.toggle_pause)
 
             if self.check_crash():
                 self.lives -= 1
                 if self.lives > 0:
+                    self.crash_time = pygame.time.get_ticks()
                     self.game_state = 'CRASHED'
+
+                    # Draw the crash message on top of the final frame
+                    large_text = pygame.font.Font('freesansbold.ttf', 115)
+                    text_surf, text_rect = self.text_objects("YOU CRASHED", large_text)
+                    text_rect.center = (self.display_width / 2, self.display_height / 2)
+                    self.gamedisplays.blit(text_surf, text_rect)
                 else:
                     self.game_state = 'GAME_OVER'
 
@@ -297,7 +300,7 @@ class Game:
         text_surface = font.render(text, True, BLACK)
         return text_surface, text_surface.get_rect()
 
-    def display_hud(self, passed, score):
+    def display_hud(self, passed, score, speed):
         font = pygame.font.SysFont(None, 25)
 
         passed_text = font.render("Passed: " + str(passed), True, BLACK)
@@ -308,6 +311,9 @@ class Game:
 
         lives_text = font.render("Lives: " + str(self.lives), True, BLACK)
         self.gamedisplays.blit(lives_text, (0, 70))
+
+        speed_text = font.render("Speed: " + str(speed), True, BLACK)
+        self.gamedisplays.blit(speed_text, (0, 90))
 
     def draw_background(self):
         self.gamedisplays.fill(GRAY)
@@ -349,6 +355,10 @@ class Player:
                 self.x_change = 5
             elif event.key == pygame.K_p:
                 self.game.toggle_pause()
+            elif event.key == pygame.K_UP:
+                self.game.obstacle.speed = min(20, self.game.obstacle.speed + 2)
+            elif event.key == pygame.K_DOWN:
+                self.game.obstacle.speed = max(2, self.game.obstacle.speed - 2)
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
                 self.x_change = 0
