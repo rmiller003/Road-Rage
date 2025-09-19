@@ -76,8 +76,6 @@ class Game:
                 self.introduction()
             elif self.game_state == 'PAUSED':
                 self.paused_loop()
-            elif self.game_state == 'CRASHED':
-                self.crashed_loop()
             elif self.game_state == 'LEVEL_UP':
                 self.level_up_loop()
             elif self.game_state == 'GAME_OVER':
@@ -94,16 +92,6 @@ class Game:
         time.sleep(2)
 
         self.game_state = 'PLAYING'
-
-    def crashed_loop(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.quit_game()
-
-        if pygame.time.get_ticks() - self.crash_time > 2000:
-            self.player = Player(self)
-            self.obstacle = Obstacle(self)
-            self.game_state = 'COUNTDOWN'
 
     def toggle_pause(self):
         if self.game_state == 'PLAYING':
@@ -216,14 +204,17 @@ class Game:
             if self.check_crash():
                 self.lives -= 1
                 if self.lives > 0:
-                    self.crash_time = pygame.time.get_ticks()
-                    self.game_state = 'CRASHED'
-
                     # Draw the crash message on top of the final frame
-                    large_text = pygame.font.Font('freesansbold.ttf', 115)
+                    large_text = pygame.font.Font('freesansbold.ttf', 80)
                     text_surf, text_rect = self.text_objects("YOU CRASHED", large_text)
                     text_rect.center = (self.display_width / 2, self.display_height / 2)
                     self.gamedisplays.blit(text_surf, text_rect)
+                    pygame.display.update()
+                    time.sleep(2)
+
+                    self.player = Player(self)
+                    self.obstacle = Obstacle(self)
+                    self.game_state = 'COUNTDOWN'
                 else:
                     self.game_state = 'GAME_OVER'
 
@@ -398,8 +389,7 @@ class Obstacle:
         self.game = game
         self.x = random.randrange(200, (game.display_width - 200))
         self.y = -750
-        self.speed = 9
-        self.x_change = random.choice([-2, 2])
+        self.speed = 9 + (game.level - 1) * 2
         self.width = 56
         self.height = 125
         self.passed = 0
@@ -408,20 +398,15 @@ class Obstacle:
 
     def update(self):
         self.y += self.speed
-        self.x += self.x_change
-
-        if self.x < 110 or self.x > 690 - self.width:
-            self.x_change *= -1
-
         if self.y > self.game.display_height:
             self.y = 0 - self.height
             self.x = random.randrange(170, (self.game.display_width - 170))
             self.image = random.choice(self.game.assets['obstacle_cars'])
             self.passed += 1
             self.score = self.passed * 10
-            if self.passed % 10 == 0:
+            if self.passed > 0 and self.passed % 10 == 0:
                 self.game.level += 1
-                self.speed += 2
+                self.speed = 9 + (self.game.level - 1) * 2
                 self.game.game_state = 'LEVEL_UP'
 
     def draw(self):
