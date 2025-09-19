@@ -22,6 +22,13 @@ BRIGHT_BLUE = (0, 0, 255)
 class Game:
     def __init__(self):
         pygame.init()
+        try:
+            pygame.mixer.init()
+            self.sound_enabled = True
+        except pygame.error:
+            self.sound_enabled = False
+            print("Warning: Could not initialize sound mixer.")
+
         self.display_width = DISPLAY_WIDTH
         self.display_height = DISPLAY_HEIGHT
         self.gamedisplays = pygame.display.set_mode((self.display_width, self.display_height))
@@ -60,8 +67,22 @@ class Game:
                 pygame.image.load("car5.jpg"),
                 pygame.image.load("car6.jpg"),
                 pygame.image.load("car7.jpg")
-            ]
+            ],
+            'sounds': {}
         }
+        if self.sound_enabled:
+            try:
+                assets['sounds']['engine'] = pygame.mixer.Sound('engine.mp3')
+                assets['sounds']['crash'] = pygame.mixer.Sound('crash.mp3')
+                assets['sounds']['horn'] = pygame.mixer.Sound('horn.mp3')
+                assets['sounds']['brake'] = pygame.mixer.Sound('breaks.mp3')
+                pygame.mixer.music.load('Car Chase.mp3')
+            except pygame.error as e:
+                print(f"Warning: Could not load sound files. {e}")
+                assets['sounds'] = None
+        else:
+            assets['sounds'] = None
+
         return assets
 
     def run(self):
@@ -98,8 +119,17 @@ class Game:
             self.game_state = 'PAUSED'
         elif self.game_state == 'PAUSED':
             self.game_state = 'PLAYING'
+            if self.assets['sounds']:
+                pygame.mixer.music.unpause()
+                if hasattr(self, 'engine_channel'):
+                    self.engine_channel.unpause()
 
     def paused_loop(self):
+        if self.assets['sounds']:
+            pygame.mixer.music.pause()
+            if hasattr(self, 'engine_channel'):
+                self.engine_channel.pause()
+
         while self.game_state == 'PAUSED':
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -118,10 +148,18 @@ class Game:
             self.clock.tick(30)
 
     def intro_loop(self):
+        if self.assets['sounds']:
+            pygame.mixer.music.stop()
+            if hasattr(self, 'engine_channel'):
+                self.engine_channel.stop()
+
         while self.game_state == 'INTRO':
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.quit_game()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN:
+                        self.start_game()
 
             self.gamedisplays.blit(self.assets['intro_background'], (0, 0))
             large_text = pygame.font.Font('freesansbold.ttf', 115)
@@ -185,6 +223,11 @@ class Game:
             self.clock.tick(30)
 
     def game_loop(self):
+        if self.assets['sounds']:
+            pygame.mixer.music.play(-1)
+            self.engine_channel = pygame.mixer.Channel(0)
+            self.engine_channel.play(self.assets['sounds']['engine'], -1)
+
         while self.game_state == 'PLAYING':
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -202,6 +245,12 @@ class Game:
             self.button("PAUSE", 650, 0, 150, 50, BLUE, BRIGHT_BLUE, self.toggle_pause)
 
             if self.check_crash():
+                if self.assets['sounds']:
+                    pygame.mixer.music.stop()
+                    if hasattr(self, 'engine_channel'):
+                        self.engine_channel.stop()
+                    self.assets['sounds']['crash'].play()
+
                 self.lives -= 1
                 if self.lives > 0:
                     # Draw the crash message on top of the final frame
@@ -214,7 +263,7 @@ class Game:
 
                     self.player = Player(self)
                     self.obstacle = Obstacle(self)
-                    self.game_state = 'COUNTDOWN'
+                    self.game_state = 'PLAYING'
                 else:
                     self.game_state = 'GAME_OVER'
 
@@ -222,10 +271,18 @@ class Game:
             self.clock.tick(60)
 
     def game_over_loop(self):
+        if self.assets['sounds']:
+            pygame.mixer.music.stop()
+            if hasattr(self, 'engine_channel'):
+                self.engine_channel.stop()
+
         while self.game_state == 'GAME_OVER':
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.quit_game()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN:
+                        self.start_game()
 
             self.gamedisplays.blit(self.assets['intro_background'], (0, 0))
             large_text = pygame.font.Font('freesansbold.ttf', 115)
@@ -374,6 +431,11 @@ class Player:
                 self.game.obstacle.speed = min(20, self.game.obstacle.speed + 2)
             elif event.key == pygame.K_DOWN:
                 self.game.obstacle.speed = max(2, self.game.obstacle.speed - 2)
+                if self.game.assets['sounds']:
+                    self.game.assets['sounds']['brake'].play()
+            elif event.key == pygame.K_LSHIFT:
+                if self.game.assets['sounds']:
+                    self.game.assets['sounds']['horn'].play()
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
                 self.x_change = 0
