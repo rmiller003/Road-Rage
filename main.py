@@ -78,6 +78,7 @@ class Game:
                 assets['sounds']['brake'] = pygame.mixer.Sound('breaks.mp3')
                 assets['sounds']['beep'] = pygame.mixer.Sound('beep.mp3')
                 assets['sounds']['go'] = pygame.mixer.Sound('go.mp3')
+                assets['sounds']['engine2'] = pygame.mixer.Sound('engine2.mp3')
                 pygame.mixer.music.load('Car Chase.mp3')
             except pygame.error as e:
                 print(f"Warning: Could not load sound files. {e}")
@@ -226,7 +227,6 @@ class Game:
 
     def game_loop(self):
         if self.assets['sounds']:
-            pygame.mixer.music.play(-1)
             self.engine_channel = pygame.mixer.Channel(0)
             self.engine_channel.play(self.assets['sounds']['engine'], -1)
 
@@ -248,7 +248,6 @@ class Game:
 
             if self.check_crash():
                 if self.assets['sounds']:
-                    pygame.mixer.music.stop()
                     if hasattr(self, 'engine_channel'):
                         self.engine_channel.stop()
                     self.assets['sounds']['crash'].play()
@@ -267,7 +266,6 @@ class Game:
                     self.obstacle = Obstacle(self)
                     self.game_state = 'PLAYING'
                     if self.assets['sounds']:
-                        pygame.mixer.music.play(-1)
                         self.engine_channel.play(self.assets['sounds']['engine'], -1)
                 else:
                     self.game_state = 'GAME_OVER'
@@ -304,6 +302,8 @@ class Game:
     def start_game(self):
         self.new_game()
         self.game_state = 'COUNTDOWN'
+        if self.assets['sounds']:
+            pygame.mixer.music.play(-1)
 
     def countdown_loop(self):
         self.gamedisplays.fill(GRAY)
@@ -438,6 +438,8 @@ class Player:
                 self.game.toggle_pause()
             elif event.key == pygame.K_UP:
                 self.game.obstacle.speed = min(20, self.game.obstacle.speed + 2)
+                if self.game.assets['sounds'] and 'engine2' in self.game.assets['sounds']:
+                    self.game.assets['sounds']['engine2'].play()
             elif event.key == pygame.K_DOWN:
                 self.game.obstacle.speed = max(2, self.game.obstacle.speed - 2)
                 if self.game.assets['sounds']:
@@ -461,6 +463,7 @@ class Obstacle:
         self.x = random.randrange(200, (game.display_width - 200))
         self.y = -750
         self.speed = 9 + (game.level - 1) * 2
+        self.x_change = random.choice([-1, 1])
         self.width = 56
         self.height = 125
         self.passed = 0
@@ -469,6 +472,11 @@ class Obstacle:
 
     def update(self):
         self.y += self.speed
+        self.x += self.x_change
+
+        if self.x < 110 or self.x > 690 - self.width:
+            self.x_change *= -1
+
         if self.y > self.game.display_height:
             self.y = 0 - self.height
             self.x = random.randrange(170, (self.game.display_width - 170))
