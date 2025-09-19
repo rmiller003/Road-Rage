@@ -2,6 +2,7 @@ import pygame
 import sys
 import time
 import random
+import math
 
 # Constants
 DISPLAY_WIDTH = 800
@@ -28,13 +29,20 @@ class Game:
         self.clock = pygame.time.Clock()
         self.game_state = 'INTRO'
         self.pause = False
+
+        # Load assets
+        self.assets = self.load_assets()
+
+        self.new_game()
+
+    def new_game(self):
         self.background_y = 0
         self.lives = 3
         self.level = 1
         self.crash_time = 0
-
-        # Load assets
-        self.assets = self.load_assets()
+        self.player = Player(self)
+        self.obstacle = Obstacle(self)
+        self.game_state = 'INTRO'
 
     def load_assets(self):
         assets = {
@@ -189,9 +197,6 @@ class Game:
             self.clock.tick(30)
 
     def game_loop(self):
-        self.player = Player(self)
-        self.obstacle = Obstacle(self)
-
         while self.game_state == 'PLAYING':
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -244,6 +249,7 @@ class Game:
             self.clock.tick(30)
 
     def start_game(self):
+        self.new_game()
         self.game_state = 'COUNTDOWN'
 
     def countdown_loop(self):
@@ -312,8 +318,26 @@ class Game:
         lives_text = font.render("Lives: " + str(self.lives), True, BLACK)
         self.gamedisplays.blit(lives_text, (0, 70))
 
-        speed_text = font.render("Speed: " + str(speed), True, BLACK)
-        self.gamedisplays.blit(speed_text, (0, 90))
+        self.draw_speedometer(speed)
+
+    def draw_speedometer(self, speed):
+        x = self.display_width - 100
+        y = self.display_height - 100
+        radius = 50
+
+        # Draw the speedometer arc
+        pygame.draw.arc(self.gamedisplays, BLACK, (x - radius, y - radius, radius * 2, radius * 2), math.pi, 2 * math.pi, 3)
+
+        # Draw the needle
+        angle = math.pi + (speed / 30) * math.pi
+        if angle > 2 * math.pi:
+            angle = 2 * math.pi
+        if angle < math.pi:
+            angle = math.pi
+
+        end_x = x + radius * math.cos(angle)
+        end_y = y + radius * math.sin(angle)
+        pygame.draw.line(self.gamedisplays, RED, (x, y), (end_x, end_y), 3)
 
     def draw_background(self):
         self.gamedisplays.fill(GRAY)
@@ -375,6 +399,7 @@ class Obstacle:
         self.x = random.randrange(200, (game.display_width - 200))
         self.y = -750
         self.speed = 9
+        self.x_change = random.choice([-2, 2])
         self.width = 56
         self.height = 125
         self.passed = 0
@@ -383,6 +408,11 @@ class Obstacle:
 
     def update(self):
         self.y += self.speed
+        self.x += self.x_change
+
+        if self.x < 110 or self.x > 690 - self.width:
+            self.x_change *= -1
+
         if self.y > self.game.display_height:
             self.y = 0 - self.height
             self.x = random.randrange(170, (self.game.display_width - 170))
