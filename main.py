@@ -80,7 +80,11 @@ class Game:
             'sounds': {}
         }
         try:
-            assets['boom'] = pygame.image.load('boom.jpg')
+            boom_image = pygame.image.load('boom.jpg')
+            width = boom_image.get_width()
+            height = boom_image.get_height()
+            assets['boom'] = pygame.transform.scale(boom_image, (width // 2, height // 2))
+            assets['boom'].set_alpha(128)
         except (pygame.error, FileNotFoundError):
             assets['boom'] = None
 
@@ -94,6 +98,7 @@ class Game:
                 assets['sounds']['go'] = pygame.mixer.Sound('go.mp3')
                 assets['sounds']['engine2'] = pygame.mixer.Sound('engine2.mp3')
                 assets['sounds']['gun'] = pygame.mixer.Sound('gun.mp3')
+                assets['sounds']['explosion'] = pygame.mixer.Sound('explosion.mp3')
                 pygame.mixer.music.load('Car Chase.mp3')
             except pygame.error as e:
                 print(f"Warning: Could not load sound files. {e}")
@@ -278,6 +283,8 @@ class Game:
                 for obstacle in self.obstacles[:]:
                     if bullet.y < obstacle.y + obstacle.height and bullet.y + bullet.height > obstacle.y and \
                        bullet.x < obstacle.x + obstacle.width and bullet.x + bullet.width > obstacle.x:
+                        if self.assets['sounds'] and 'explosion' in self.assets['sounds']:
+                            self.assets['sounds']['explosion'].play()
                         self.explosions.append(Explosion(self, obstacle.x, obstacle.y))
                         self.obstacles.remove(obstacle)
                         self.bullets.remove(bullet)
@@ -560,25 +567,25 @@ class Obstacle:
     def __init__(self, game):
         self.game = game
         self.x = random.randrange(200, (game.display_width - 200))
-        self.y = -600
-        self.base_speed = (9 + (game.level - 1) * 2) + random.choice([0, 0, 0, 2, 4])
+        self.y = game.display_height
+        self.base_speed = -((9 + (game.level - 1) * 2) + random.choice([0, 0, 0, 2, 4]))
         self.x_change = random.choice([-1, 1])
         self.image = random.choice(self.game.assets['obstacle_cars'])
         self.width = self.image.get_width()
         self.height = self.image.get_height()
 
     def update(self):
-        self.y += self.base_speed + self.game.speed_offset
+        self.y += self.base_speed - self.game.speed_offset
         self.x += self.x_change
 
         if self.x < 110 or self.x > 690 - self.width:
             self.x_change *= -1
 
-        if self.y > self.game.display_height:
-            self.y = -self.height
+        if self.y < -self.height:
+            self.y = self.game.display_height
             self.x = random.randrange(170, (self.game.display_width - 170))
             self.image = random.choice(self.game.assets['obstacle_cars'])
-            self.base_speed = (9 + (self.game.level - 1) * 2) + random.choice([0, 0, 0, 2, 4])
+            self.base_speed = -((9 + (self.game.level - 1) * 2) + random.choice([0, 0, 0, 2, 4]))
             self.game.passed += 1
             self.game.score = self.game.passed * 10
 
