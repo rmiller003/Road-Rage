@@ -519,8 +519,9 @@ class Explosion:
 class Player:
     def __init__(self, game):
         self.game = game
-        self.x = (game.display_width * 0.45)
-        self.y = (game.display_height * 0.75)
+        # Center of road is 400. Car width is 56. 400 - (56/2) = 372
+        self.x = 372
+        self.y = (game.display_height * 0.6)
         self.x_change = 0
 
     def handle_event(self, event):
@@ -532,11 +533,13 @@ class Player:
             elif event.key == pygame.K_p:
                 self.game.toggle_pause()
             elif event.key == pygame.K_UP:
-                self.game.speed_offset = min(10, self.game.speed_offset + 1)
+                # Decrease the speed offset to make obstacles move slower, creating the illusion of player acceleration.
+                self.game.speed_offset = max(-5, self.game.speed_offset - 2)
                 if self.game.assets['sounds'] and 'engine2' in self.game.assets['sounds']:
                     self.game.assets['sounds']['engine2'].play()
             elif event.key == pygame.K_DOWN:
-                self.game.speed_offset = max(-5, self.game.speed_offset - 1)
+                # Increase the speed offset to make obstacles move faster, creating the illusion of player braking.
+                self.game.speed_offset = min(10, self.game.speed_offset + 2)
                 if self.game.assets['sounds']:
                     self.game.assets['sounds']['brake'].play()
             elif event.key == pygame.K_LSHIFT:
@@ -567,25 +570,25 @@ class Obstacle:
     def __init__(self, game):
         self.game = game
         self.x = random.randrange(200, (game.display_width - 200))
-        self.y = game.display_height
-        self.base_speed = -((9 + (game.level - 1) * 2) + random.choice([0, 0, 0, 2, 4]))
+        self.y = -600
+        self.base_speed = (5 + (game.level - 1) * 1) + random.choice([0, 1, 2])
         self.x_change = random.choice([-1, 1])
         self.image = random.choice(self.game.assets['obstacle_cars'])
         self.width = self.image.get_width()
         self.height = self.image.get_height()
 
     def update(self):
-        self.y += self.base_speed - self.game.speed_offset
+        self.y += self.base_speed + self.game.speed_offset
         self.x += self.x_change
 
         if self.x < 110 or self.x > 690 - self.width:
             self.x_change *= -1
 
-        if self.y < -self.height:
-            self.y = self.game.display_height
+        if self.y > self.game.display_height:
+            self.y = -self.height
             self.x = random.randrange(170, (self.game.display_width - 170))
             self.image = random.choice(self.game.assets['obstacle_cars'])
-            self.base_speed = -((9 + (self.game.level - 1) * 2) + random.choice([0, 0, 0, 2, 4]))
+            self.base_speed = (5 + (game.level - 1) * 1) + random.choice([0, 1, 2])
             self.game.passed += 1
             self.game.score = self.game.passed * 10
 
