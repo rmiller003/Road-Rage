@@ -8,7 +8,6 @@ import math
 DISPLAY_WIDTH = 800
 DISPLAY_HEIGHT = 600
 CAR_WIDTH = 56
-HORIZON_Y = 150
 
 # Colors
 GRAY = (119, 118, 110)
@@ -475,8 +474,6 @@ class Game:
             self.gamedisplays.blit(self.assets['strip'], (680, rel_y_strip + i * self.assets['strip'].get_rect().height))
 
     def check_crash(self):
-        if self.player.x > 690 - CAR_WIDTH or self.player.x < 110:
-            return True
         for obstacle in self.obstacles:
             if self.player.y < obstacle.y + obstacle.height:
                 if self.player.x > obstacle.x and self.player.x < obstacle.x + obstacle.width or \
@@ -547,22 +544,32 @@ class Player:
                 if self.game.assets['sounds']:
                     self.game.assets['sounds']['horn'].play()
             elif event.key == pygame.K_SPACE:
-                if self.game.level >= 2:
-                    self.shoot()
+                self.shoot()
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
                 self.x_change = 0
 
     def update(self):
         self.x += self.x_change
+        if self.x > 690 - CAR_WIDTH:
+            self.x = 690 - CAR_WIDTH
+        if self.x < 110:
+            self.x = 110
 
     def shoot(self):
         if self.game.assets['sounds'] and 'gun' in self.game.assets['sounds']:
             self.game.assets['sounds']['gun'].play()
-        bullet1 = Bullet(self.game, self.x + 10, self.y)
-        bullet2 = Bullet(self.game, self.x + CAR_WIDTH - 14, self.y)
-        self.game.bullets.append(bullet1)
-        self.game.bullets.append(bullet2)
+
+        if self.game.level >= 4:
+            # Double bullets from level 4
+            bullet1 = Bullet(self.game, self.x + 10, self.y)
+            bullet2 = Bullet(self.game, self.x + CAR_WIDTH - 14, self.y)
+            self.game.bullets.append(bullet1)
+            self.game.bullets.append(bullet2)
+        else:
+            # Single bullet for levels 1-3
+            bullet = Bullet(self.game, self.x + CAR_WIDTH / 2 - 2, self.y)
+            self.game.bullets.append(bullet)
 
     def draw(self):
         self.game.gamedisplays.blit(self.game.assets['carimg'], (self.x, self.y))
@@ -597,7 +604,7 @@ class Obstacle:
                 self.game.lives += 1
                 self.game.next_life_milestone += 500
 
-            if self.game.passed > 0 and self.game.passed % 10 == 0:
+            if self.game.passed > 0 and self.game.passed % 50 == 0:
                 self.game.level += 1
                 self.game.game_state = 'LEVEL_UP'
 
