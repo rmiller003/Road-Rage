@@ -8,6 +8,7 @@ import math
 DISPLAY_WIDTH = 800
 DISPLAY_HEIGHT = 600
 CAR_WIDTH = 56
+HORIZON_Y = 150
 
 # Colors
 GRAY = (119, 118, 110)
@@ -53,6 +54,7 @@ class Game:
         self.player = Player(self)
         self.obstacles = [Obstacle(self)]
         self.bullets = []
+        self.speed_offset = 0
         self.game_state = 'INTRO'
 
     def load_assets(self):
@@ -279,7 +281,10 @@ class Game:
                 obstacle.draw()
             for bullet in self.bullets:
                 bullet.draw()
-            self.display_hud(self.obstacles[0].speed if self.obstacles else 9)
+
+            # The speed displayed in the HUD will be the speed of the first car in the list
+            display_speed = (self.obstacles[0].base_speed + self.speed_offset) if self.obstacles else (9 + self.speed_offset)
+            self.display_hud(display_speed)
             self.button("PAUSE", 650, 0, 150, 50, BLUE, BRIGHT_BLUE, self.toggle_pause)
 
             if self.check_crash():
@@ -478,7 +483,7 @@ class Player:
     def __init__(self, game):
         self.game = game
         self.x = (game.display_width * 0.45)
-        self.y = (game.display_height * 0.8)
+        self.y = (game.display_height * 0.75)
         self.x_change = 0
 
     def handle_event(self, event):
@@ -490,20 +495,19 @@ class Player:
             elif event.key == pygame.K_p:
                 self.game.toggle_pause()
             elif event.key == pygame.K_UP:
-                for obstacle in self.game.obstacles:
-                    obstacle.speed = min(20, obstacle.speed + 2)
+                self.game.speed_offset = min(10, self.game.speed_offset + 1)
                 if self.game.assets['sounds'] and 'engine2' in self.game.assets['sounds']:
                     self.game.assets['sounds']['engine2'].play()
             elif event.key == pygame.K_DOWN:
-                for obstacle in self.game.obstacles:
-                    obstacle.speed = max(2, obstacle.speed - 2)
+                self.game.speed_offset = max(-5, self.game.speed_offset - 1)
                 if self.game.assets['sounds']:
                     self.game.assets['sounds']['brake'].play()
             elif event.key == pygame.K_LSHIFT:
                 if self.game.assets['sounds']:
                     self.game.assets['sounds']['horn'].play()
             elif event.key == pygame.K_SPACE:
-                self.shoot()
+                if self.game.level >= 4:
+                    self.shoot()
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
                 self.x_change = 0
@@ -512,14 +516,10 @@ class Player:
         self.x += self.x_change
 
     def shoot(self):
-        if self.game.level >= 3:
-            bullet1 = Bullet(self.game, self.x + 10, self.y)
-            bullet2 = Bullet(self.game, self.x + CAR_WIDTH - 14, self.y)
-            self.game.bullets.append(bullet1)
-            self.game.bullets.append(bullet2)
-        else:
-            bullet = Bullet(self.game, self.x + CAR_WIDTH / 2 - 2, self.y)
-            self.game.bullets.append(bullet)
+        bullet1 = Bullet(self.game, self.x + 10, self.y)
+        bullet2 = Bullet(self.game, self.x + CAR_WIDTH - 14, self.y)
+        self.game.bullets.append(bullet1)
+        self.game.bullets.append(bullet2)
 
     def draw(self):
         self.game.gamedisplays.blit(self.game.assets['carimg'], (self.x, self.y))
@@ -528,25 +528,25 @@ class Obstacle:
     def __init__(self, game):
         self.game = game
         self.x = random.randrange(200, (game.display_width - 200))
-        self.y = -750
-        self.speed = 9 + (game.level - 1) * 2
+        self.y = -600
+        self.base_speed = (9 + (game.level - 1) * 2) + random.choice([0, 0, 0, 2, 4])
         self.x_change = random.choice([-1, 1])
-        self.width = 56
-        self.height = 125
-        self.original_image = random.choice(self.game.assets['obstacle_cars'])
-        self.image = self.original_image
+        self.image = random.choice(self.game.assets['obstacle_cars'])
+        self.width = self.image.get_width()
+        self.height = self.image.get_height()
 
     def update(self):
-        self.y += self.speed
+        self.y += self.base_speed + self.game.speed_offset
         self.x += self.x_change
 
         if self.x < 110 or self.x > 690 - self.width:
             self.x_change *= -1
 
         if self.y > self.game.display_height:
-            self.y = 0 - self.height
+            self.y = -self.height
             self.x = random.randrange(170, (self.game.display_width - 170))
             self.image = random.choice(self.game.assets['obstacle_cars'])
+            self.base_speed = (9 + (self.game.level - 1) * 2) + random.choice([0, 0, 0, 2, 4])
             self.game.passed += 1
             self.game.score = self.game.passed * 10
 
@@ -556,20 +556,10 @@ class Obstacle:
 
             if self.game.passed > 0 and self.game.passed % 10 == 0:
                 self.game.level += 1
-                self.speed = 9 + (self.game.level - 1) * 2
                 self.game.game_state = 'LEVEL_UP'
 
     def draw(self):
-        scale_factor = 0.1 + 0.9 * (self.y / self.game.display_height)
-        if scale_factor > 0.1:
-            scaled_width = int(self.original_image.get_width() * scale_factor)
-            scaled_height = int(self.original_image.get_height() * scale_factor)
-            self.image = pygame.transform.scale(self.original_image, (scaled_width, scaled_height))
-            self.width = scaled_width
-            self.height = scaled_height
-
-            blit_x = self.x - (scaled_width - self.original_image.get_width()) / 2
-            self.game.gamedisplays.blit(self.image, (blit_x, self.y))
+        self.game.gamedisplays.blit(self.image, (self.x, self.y))
 
 if __name__ == '__main__':
     game = Game()
