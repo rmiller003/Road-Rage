@@ -81,9 +81,10 @@ class Game:
         }
         try:
             boom_image = pygame.image.load('boom.jpg')
-            width = boom_image.get_width()
-            height = boom_image.get_height()
-            assets['boom'] = pygame.transform.scale(boom_image, (width // 2, height // 2))
+            # Get the size of a sample enemy car
+            car_width = assets['obstacle_cars'][0].get_width()
+            car_height = assets['obstacle_cars'][0].get_height()
+            assets['boom'] = pygame.transform.scale(boom_image, (car_width, car_height))
             assets['boom'].set_alpha(128)
         except (pygame.error, FileNotFoundError):
             assets['boom'] = None
