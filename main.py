@@ -54,6 +54,7 @@ class Game:
         self.player = Player(self)
         self.obstacles = [Obstacle(self)]
         self.bullets = []
+        self.explosions = []
         self.speed_offset = 0
         self.game_state = 'INTRO'
 
@@ -76,6 +77,11 @@ class Game:
             ],
             'sounds': {}
         }
+        try:
+            assets['boom'] = pygame.image.load('boom.jpg')
+        except (pygame.error, FileNotFoundError):
+            assets['boom'] = None
+
         if self.sound_enabled:
             try:
                 assets['sounds']['engine'] = pygame.mixer.Sound('engine.mp3')
@@ -85,6 +91,7 @@ class Game:
                 assets['sounds']['beep'] = pygame.mixer.Sound('beep.mp3')
                 assets['sounds']['go'] = pygame.mixer.Sound('go.mp3')
                 assets['sounds']['engine2'] = pygame.mixer.Sound('engine2.mp3')
+                assets['sounds']['gun'] = pygame.mixer.Sound('gun.mp3')
                 pygame.mixer.music.load('Car Chase.mp3')
             except pygame.error as e:
                 print(f"Warning: Could not load sound files. {e}")
@@ -240,7 +247,7 @@ class Game:
             return 1
 
     def game_loop(self):
-        if self.assets['sounds']:
+        if self.assets['sounds'] and not pygame.mixer.music.get_busy():
             self.engine_channel = pygame.mixer.Channel(0)
             self.engine_channel.play(self.assets['sounds']['engine'], -1)
 
@@ -259,6 +266,8 @@ class Game:
                 obstacle.update()
             for bullet in self.bullets:
                 bullet.update()
+            for explosion in self.explosions:
+                explosion.update()
 
             # Remove bullets that are off-screen
             self.bullets = [bullet for bullet in self.bullets if bullet.y > 0]
@@ -268,12 +277,13 @@ class Game:
                 for obstacle in self.obstacles[:]:
                     if bullet.y < obstacle.y + obstacle.height and bullet.y + bullet.height > obstacle.y and \
                        bullet.x < obstacle.x + obstacle.width and bullet.x + bullet.width > obstacle.x:
+                        self.explosions.append(Explosion(self, obstacle.x, obstacle.y))
                         self.obstacles.remove(obstacle)
                         self.bullets.remove(bullet)
-                        self.score += 20
+                        self.score += 25
                         break
 
-            self.background_y += self.obstacles[0].speed if self.obstacles else 9
+            self.background_y += (9 + self.speed_offset)
 
             self.draw_background()
             self.player.draw()
@@ -281,6 +291,8 @@ class Game:
                 obstacle.draw()
             for bullet in self.bullets:
                 bullet.draw()
+            for explosion in self.explosions:
+                explosion.draw()
 
             # The speed displayed in the HUD will be the speed of the first car in the list
             display_speed = (self.obstacles[0].base_speed + self.speed_offset) if self.obstacles else (9 + self.speed_offset)
@@ -479,6 +491,23 @@ class Bullet:
     def draw(self):
         pygame.draw.rect(self.game.gamedisplays, self.color, (self.x, self.y, self.width, self.height))
 
+class Explosion:
+    def __init__(self, game, x, y):
+        self.game = game
+        self.x = x
+        self.y = y
+        self.image = self.game.assets.get('boom')
+        self.lifetime = 0.5 # seconds
+        self.spawn_time = time.time()
+
+    def update(self):
+        if time.time() - self.spawn_time > self.lifetime:
+            self.game.explosions.remove(self)
+
+    def draw(self):
+        if self.image:
+            self.game.gamedisplays.blit(self.image, (self.x, self.y))
+
 class Player:
     def __init__(self, game):
         self.game = game
@@ -506,7 +535,7 @@ class Player:
                 if self.game.assets['sounds']:
                     self.game.assets['sounds']['horn'].play()
             elif event.key == pygame.K_SPACE:
-                if self.game.level >= 4:
+                if self.game.level >= 2:
                     self.shoot()
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
@@ -516,6 +545,8 @@ class Player:
         self.x += self.x_change
 
     def shoot(self):
+        if self.game.assets['sounds'] and 'gun' in self.game.assets['sounds']:
+            self.game.assets['sounds']['gun'].play()
         bullet1 = Bullet(self.game, self.x + 10, self.y)
         bullet2 = Bullet(self.game, self.x + CAR_WIDTH - 14, self.y)
         self.game.bullets.append(bullet1)
