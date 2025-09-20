@@ -273,7 +273,7 @@ class Game:
                         self.score += 20
                         break
 
-            self.background_y += self.obstacles[0].speed if self.obstacles else 9
+            self.background_y += (9 + self.speed_offset)
 
             self.draw_background()
             self.player.draw()
