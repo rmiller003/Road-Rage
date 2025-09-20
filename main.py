@@ -47,8 +47,12 @@ class Game:
         self.lives = 3
         self.level = 1
         self.crash_time = 0
+        self.score = 0
+        self.passed = 0
+        self.next_life_milestone = 500
         self.player = Player(self)
-        self.obstacle = Obstacle(self)
+        self.obstacles = [Obstacle(self)]
+        self.bullets = []
         self.game_state = 'INTRO'
 
     def load_assets(self):
@@ -225,6 +229,14 @@ class Game:
             pygame.display.update()
             self.clock.tick(30)
 
+    def get_max_obstacles(self):
+        if self.level >= 8:
+            return 4
+        elif self.level >= 3:
+            return 3
+        else:
+            return 1
+
     def game_loop(self):
         if self.assets['sounds']:
             self.engine_channel = pygame.mixer.Channel(0)
@@ -236,14 +248,38 @@ class Game:
                     self.quit_game()
                 self.player.handle_event(event)
 
+            max_obstacles = self.get_max_obstacles()
+            if len(self.obstacles) < max_obstacles:
+                self.obstacles.append(Obstacle(self))
+
             self.player.update()
-            self.obstacle.update()
-            self.background_y += self.obstacle.speed
+            for obstacle in self.obstacles:
+                obstacle.update()
+            for bullet in self.bullets:
+                bullet.update()
+
+            # Remove bullets that are off-screen
+            self.bullets = [bullet for bullet in self.bullets if bullet.y > 0]
+
+            # Handle bullet-obstacle collisions
+            for bullet in self.bullets[:]:
+                for obstacle in self.obstacles[:]:
+                    if bullet.y < obstacle.y + obstacle.height and bullet.y + bullet.height > obstacle.y and \
+                       bullet.x < obstacle.x + obstacle.width and bullet.x + bullet.width > obstacle.x:
+                        self.obstacles.remove(obstacle)
+                        self.bullets.remove(bullet)
+                        self.score += 20
+                        break
+
+            self.background_y += self.obstacles[0].speed if self.obstacles else 9
 
             self.draw_background()
             self.player.draw()
-            self.obstacle.draw()
-            self.display_hud(self.obstacle.passed, self.obstacle.score, self.obstacle.speed)
+            for obstacle in self.obstacles:
+                obstacle.draw()
+            for bullet in self.bullets:
+                bullet.draw()
+            self.display_hud(self.obstacles[0].speed if self.obstacles else 9)
             self.button("PAUSE", 650, 0, 150, 50, BLUE, BRIGHT_BLUE, self.toggle_pause)
 
             if self.check_crash():
@@ -263,7 +299,7 @@ class Game:
                     time.sleep(2)
 
                     self.player = Player(self)
-                    self.obstacle = Obstacle(self)
+                    self.obstacles = [Obstacle(self)]
                     self.game_state = 'PLAYING'
                     if self.assets['sounds']:
                         self.engine_channel.play(self.assets['sounds']['engine'], -1)
@@ -363,13 +399,13 @@ class Game:
         text_surface = font.render(text, True, BLACK)
         return text_surface, text_surface.get_rect()
 
-    def display_hud(self, passed, score, speed):
+    def display_hud(self, speed):
         font = pygame.font.SysFont(None, 25)
 
-        passed_text = font.render("Passed: " + str(passed), True, BLACK)
+        passed_text = font.render("Passed: " + str(self.passed), True, BLACK)
         self.gamedisplays.blit(passed_text, (0, 50))
 
-        score_text = font.render("Score: " + str(score), True, RED)
+        score_text = font.render("Score: " + str(self.score), True, RED)
         self.gamedisplays.blit(score_text, (0, 30))
 
         lives_text = font.render("Lives: " + str(self.lives), True, BLACK)
@@ -415,11 +451,28 @@ class Game:
     def check_crash(self):
         if self.player.x > 690 - CAR_WIDTH or self.player.x < 110:
             return True
-        if self.player.y < self.obstacle.y + self.obstacle.height:
-            if self.player.x > self.obstacle.x and self.player.x < self.obstacle.x + self.obstacle.width or \
-               self.player.x + CAR_WIDTH > self.obstacle.x and self.player.x + CAR_WIDTH < self.obstacle.x + self.obstacle.width:
-                return True
+        for obstacle in self.obstacles:
+            if self.player.y < obstacle.y + obstacle.height:
+                if self.player.x > obstacle.x and self.player.x < obstacle.x + obstacle.width or \
+                   self.player.x + CAR_WIDTH > obstacle.x and self.player.x + CAR_WIDTH < obstacle.x + obstacle.width:
+                    return True
         return False
+
+class Bullet:
+    def __init__(self, game, x, y):
+        self.game = game
+        self.x = x
+        self.y = y
+        self.speed = -10
+        self.width = 4
+        self.height = 10
+        self.color = (255, 255, 0) # Yellow
+
+    def update(self):
+        self.y += self.speed
+
+    def draw(self):
+        pygame.draw.rect(self.game.gamedisplays, self.color, (self.x, self.y, self.width, self.height))
 
 class Player:
     def __init__(self, game):
@@ -437,22 +490,36 @@ class Player:
             elif event.key == pygame.K_p:
                 self.game.toggle_pause()
             elif event.key == pygame.K_UP:
-                self.game.obstacle.speed = min(20, self.game.obstacle.speed + 2)
+                for obstacle in self.game.obstacles:
+                    obstacle.speed = min(20, obstacle.speed + 2)
                 if self.game.assets['sounds'] and 'engine2' in self.game.assets['sounds']:
                     self.game.assets['sounds']['engine2'].play()
             elif event.key == pygame.K_DOWN:
-                self.game.obstacle.speed = max(2, self.game.obstacle.speed - 2)
+                for obstacle in self.game.obstacles:
+                    obstacle.speed = max(2, obstacle.speed - 2)
                 if self.game.assets['sounds']:
                     self.game.assets['sounds']['brake'].play()
             elif event.key == pygame.K_LSHIFT:
                 if self.game.assets['sounds']:
                     self.game.assets['sounds']['horn'].play()
+            elif event.key == pygame.K_SPACE:
+                self.shoot()
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
                 self.x_change = 0
 
     def update(self):
         self.x += self.x_change
+
+    def shoot(self):
+        if self.game.level >= 3:
+            bullet1 = Bullet(self.game, self.x + 10, self.y)
+            bullet2 = Bullet(self.game, self.x + CAR_WIDTH - 14, self.y)
+            self.game.bullets.append(bullet1)
+            self.game.bullets.append(bullet2)
+        else:
+            bullet = Bullet(self.game, self.x + CAR_WIDTH / 2 - 2, self.y)
+            self.game.bullets.append(bullet)
 
     def draw(self):
         self.game.gamedisplays.blit(self.game.assets['carimg'], (self.x, self.y))
@@ -466,9 +533,8 @@ class Obstacle:
         self.x_change = random.choice([-1, 1])
         self.width = 56
         self.height = 125
-        self.passed = 0
-        self.score = 0
-        self.image = random.choice(self.game.assets['obstacle_cars'])
+        self.original_image = random.choice(self.game.assets['obstacle_cars'])
+        self.image = self.original_image
 
     def update(self):
         self.y += self.speed
@@ -481,16 +547,29 @@ class Obstacle:
             self.y = 0 - self.height
             self.x = random.randrange(170, (self.game.display_width - 170))
             self.image = random.choice(self.game.assets['obstacle_cars'])
-            self.passed += 1
-            self.score = self.passed * 10
-            if self.passed > 0 and self.passed % 10 == 0:
+            self.game.passed += 1
+            self.game.score = self.game.passed * 10
+
+            if self.game.score >= self.game.next_life_milestone:
+                self.game.lives += 1
+                self.game.next_life_milestone += 500
+
+            if self.game.passed > 0 and self.game.passed % 10 == 0:
                 self.game.level += 1
                 self.speed = 9 + (self.game.level - 1) * 2
                 self.game.game_state = 'LEVEL_UP'
 
     def draw(self):
-        self.game.gamedisplays.blit(self.image, (self.x, self.y))
+        scale_factor = 0.1 + 0.9 * (self.y / self.game.display_height)
+        if scale_factor > 0.1:
+            scaled_width = int(self.original_image.get_width() * scale_factor)
+            scaled_height = int(self.original_image.get_height() * scale_factor)
+            self.image = pygame.transform.scale(self.original_image, (scaled_width, scaled_height))
+            self.width = scaled_width
+            self.height = scaled_height
 
+            blit_x = self.x - (scaled_width - self.original_image.get_width()) / 2
+            self.game.gamedisplays.blit(self.image, (blit_x, self.y))
 
 if __name__ == '__main__':
     game = Game()
