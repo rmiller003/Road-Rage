@@ -26,8 +26,10 @@ class Game:
         try:
             pygame.mixer.init()
             self.sound_enabled = True
+            self.engine_channel = pygame.mixer.Channel(0)
         except pygame.error:
             self.sound_enabled = False
+            self.engine_channel = None
             print("Warning: Could not initialize sound mixer.")
 
         self.display_width = DISPLAY_WIDTH
@@ -247,8 +249,7 @@ class Game:
             return 1
 
     def game_loop(self):
-        if self.assets['sounds'] and not pygame.mixer.music.get_busy():
-            self.engine_channel = pygame.mixer.Channel(0)
+        if self.sound_enabled and self.assets['sounds']:
             self.engine_channel.play(self.assets['sounds']['engine'], -1)
 
         while self.game_state == 'PLAYING':
