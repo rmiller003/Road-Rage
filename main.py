@@ -8,6 +8,7 @@ import math
 DISPLAY_WIDTH = 800
 DISPLAY_HEIGHT = 600
 CAR_WIDTH = 56
+HIGHSCORE_FILE = "highscore.txt"
 
 # Colors
 GRAY = (119, 118, 110)
@@ -41,8 +42,21 @@ class Game:
 
         # Load assets
         self.assets = self.load_assets()
+        self.highscore = 0
+        self.load_highscore()
 
         self.new_game()
+
+    def load_highscore(self):
+        try:
+            with open(HIGHSCORE_FILE, "r") as f:
+                self.highscore = int(f.read())
+        except (FileNotFoundError, ValueError):
+            self.highscore = 0
+
+    def save_highscore(self):
+        with open(HIGHSCORE_FILE, "w") as f:
+            f.write(str(self.highscore))
 
     def new_game(self):
         self.background_y = 0
@@ -84,7 +98,7 @@ class Game:
             # Get the size of a sample enemy car
             car_width = assets['obstacle_cars'][0].get_width()
             car_height = assets['obstacle_cars'][0].get_height()
-            assets['boom'] = pygame.transform.scale(boom_image, (car_width, car_height))
+            assets['boom'] = pygame.transform.scale(boom_image, (int(car_width * 1.5), int(car_height * 1.5)))
             assets['boom'].set_alpha(128)
         except (pygame.error, FileNotFoundError):
             assets['boom'] = None
@@ -191,9 +205,12 @@ class Game:
             text_rect.center = (400, 100)
             self.gamedisplays.blit(text_surf, text_rect)
 
-            self.button("START", 150, 520, 100, 50, GREEN, BRIGHT_GREEN, self.start_game)
-            self.button("QUIT", 550, 520, 100, 50, RED, BRIGHT_RED, self.quit_game)
-            self.button("INSTRUCTION", 300, 520, 200, 50, BLUE, BRIGHT_BLUE, self.show_instructions)
+            font = pygame.font.SysFont(None, 40)
+            highscore_text = font.render("High Score: " + str(self.highscore), True, BLACK)
+            self.gamedisplays.blit(highscore_text, (self.display_width / 2 - highscore_text.get_width() / 2, 200))
+
+            self.button("START", 250, 520, 100, 50, GREEN, BRIGHT_GREEN, self.start_game)
+            self.button("QUIT", 450, 520, 100, 50, RED, BRIGHT_RED, self.quit_game)
 
             pygame.display.update()
             self.clock.tick(50)
@@ -346,6 +363,10 @@ class Game:
             if hasattr(self, 'engine_channel'):
                 self.engine_channel.stop()
 
+        if self.score > self.highscore:
+            self.highscore = self.score
+            self.save_highscore()
+
         while self.game_state == 'GAME_OVER':
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -357,8 +378,15 @@ class Game:
             self.gamedisplays.blit(self.assets['intro_background'], (0, 0))
             large_text = pygame.font.Font('freesansbold.ttf', 115)
             text_surf, text_rect = self.text_objects("GAME OVER", large_text)
-            text_rect.center = (self.display_width / 2, self.display_height / 2)
+            text_rect.center = (self.display_width / 2, self.display_height / 2 - 50)
             self.gamedisplays.blit(text_surf, text_rect)
+
+            font = pygame.font.SysFont(None, 40)
+            score_text = font.render("Score: " + str(self.score), True, BLACK)
+            self.gamedisplays.blit(score_text, (self.display_width / 2 - score_text.get_width() / 2, self.display_height / 2 + 50))
+            highscore_text = font.render("High Score: " + str(self.highscore), True, BLACK)
+            self.gamedisplays.blit(highscore_text, (self.display_width / 2 - highscore_text.get_width() / 2, self.display_height / 2 + 100))
+
 
             self.button("RESTART", 150, 450, 150, 50, GREEN, BRIGHT_GREEN, self.start_game)
             self.button("MAIN MENU", 550, 450, 200, 50, RED, BRIGHT_RED, self.back_to_menu)
@@ -441,6 +469,9 @@ class Game:
 
         lives_text = font.render("Lives: " + str(self.lives), True, BLACK)
         self.gamedisplays.blit(lives_text, (0, 70))
+
+        highscore_text = font.render("High Score: " + str(self.highscore), True, BLACK)
+        self.gamedisplays.blit(highscore_text, (0, 90))
 
         self.draw_speedometer(speed)
 
@@ -603,6 +634,7 @@ class Obstacle:
         self.image = random.choice(self.game.assets['obstacle_cars'])
         self.width = self.image.get_width()
         self.height = self.image.get_height()
+        self.has_fired = False
 
     def update(self):
         self.y += self.base_speed + self.game.speed_offset
@@ -611,13 +643,17 @@ class Obstacle:
         if self.x < 110 or self.x > 690 - self.width:
             self.x_change *= -1
 
-        if self.y > self.game.display_height:
+        if not self.has_fired and self.y > self.game.player.y:
             self.shoot()
+            self.has_fired = True
+
+        if self.y > self.game.display_height:
             self.y = -self.height
             self.x = random.randrange(170, (self.game.display_width - 170))
             self.image = random.choice(self.game.assets['obstacle_cars'])
             self.base_speed = (5 + (game.level - 1) * 1) + random.choice([0, 1, 2])
             self.game.passed += 1
+            self.has_fired = False
             self.game.score = self.game.passed * 10
 
             if self.game.score >= self.game.next_life_milestone:
