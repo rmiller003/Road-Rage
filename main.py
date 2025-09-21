@@ -55,6 +55,7 @@ class Game:
         self.player = Player(self)
         self.obstacles = [Obstacle(self)]
         self.bullets = []
+        self.enemy_bullets = []
         self.explosions = []
         self.speed_offset = 0
         self.game_state = 'INTRO'
@@ -272,11 +273,14 @@ class Game:
                 obstacle.update()
             for bullet in self.bullets:
                 bullet.update()
+            for bullet in self.enemy_bullets:
+                bullet.update()
             for explosion in self.explosions:
                 explosion.update()
 
             # Remove bullets that are off-screen
             self.bullets = [bullet for bullet in self.bullets if bullet.y > 0]
+            self.enemy_bullets = [bullet for bullet in self.enemy_bullets if bullet.y < self.display_height]
 
             # Handle bullet-obstacle collisions
             for bullet in self.bullets[:]:
@@ -299,6 +303,8 @@ class Game:
                 obstacle.draw()
             for bullet in self.bullets:
                 bullet.draw()
+            for bullet in self.enemy_bullets:
+                bullet.draw()
             for explosion in self.explosions:
                 explosion.draw()
 
@@ -307,7 +313,7 @@ class Game:
             self.display_hud(display_speed)
             self.button("PAUSE", 650, 0, 150, 50, BLUE, BRIGHT_BLUE, self.toggle_pause)
 
-            if self.check_crash():
+            if self.check_crash() or self.check_player_hit():
                 if self.assets['sounds']:
                     if hasattr(self, 'engine_channel'):
                         self.engine_channel.stop()
@@ -481,6 +487,15 @@ class Game:
                     return True
         return False
 
+    def check_player_hit(self):
+        for bullet in self.enemy_bullets:
+            if self.player.y < bullet.y + bullet.height and self.player.y + CAR_WIDTH > bullet.y:
+                if self.player.x > bullet.x and self.player.x < bullet.x + bullet.width or \
+                   self.player.x + CAR_WIDTH > bullet.x and self.player.x + CAR_WIDTH < bullet.x + bullet.width:
+                    self.enemy_bullets.remove(bullet)
+                    return True
+        return False
+
 class Bullet:
     def __init__(self, game, x, y):
         self.game = game
@@ -496,6 +511,12 @@ class Bullet:
 
     def draw(self):
         pygame.draw.rect(self.game.gamedisplays, self.color, (self.x, self.y, self.width, self.height))
+
+class EnemyBullet(Bullet):
+    def __init__(self, game, x, y):
+        super().__init__(game, x, y)
+        self.speed = 10
+        self.color = (255, 0, 0) # Red
 
 class Explosion:
     def __init__(self, game, x, y):
@@ -530,13 +551,16 @@ class Player:
                 self.x_change = 5
             elif event.key == pygame.K_p:
                 self.game.toggle_pause()
+            # Acceleration and Braking controls
             elif event.key == pygame.K_UP:
-                # Decrease the speed offset to make obstacles move slower, creating the illusion of player acceleration.
+                # ACCELERATION: Decrease the speed offset to make obstacles move slower,
+                # creating the illusion of the player car accelerating.
                 self.game.speed_offset = max(-5, self.game.speed_offset - 2)
                 if self.game.assets['sounds'] and 'engine2' in self.game.assets['sounds']:
                     self.game.assets['sounds']['engine2'].play()
             elif event.key == pygame.K_DOWN:
-                # Increase the speed offset to make obstacles move faster, creating the illusion of player braking.
+                # BRAKING: Increase the speed offset to make obstacles move faster,
+                # creating the illusion of the player car braking.
                 self.game.speed_offset = min(10, self.game.speed_offset + 2)
                 if self.game.assets['sounds']:
                     self.game.assets['sounds']['brake'].play()
@@ -560,16 +584,11 @@ class Player:
         if self.game.assets['sounds'] and 'gun' in self.game.assets['sounds']:
             self.game.assets['sounds']['gun'].play()
 
-        if self.game.level >= 4:
-            # Double bullets from level 4
-            bullet1 = Bullet(self.game, self.x + 10, self.y)
-            bullet2 = Bullet(self.game, self.x + CAR_WIDTH - 14, self.y)
-            self.game.bullets.append(bullet1)
-            self.game.bullets.append(bullet2)
-        else:
-            # Single bullet for levels 1-3
-            bullet = Bullet(self.game, self.x + CAR_WIDTH / 2 - 2, self.y)
-            self.game.bullets.append(bullet)
+        # Double bullets
+        bullet1 = Bullet(self.game, self.x + 10, self.y)
+        bullet2 = Bullet(self.game, self.x + CAR_WIDTH - 14, self.y)
+        self.game.bullets.append(bullet1)
+        self.game.bullets.append(bullet2)
 
     def draw(self):
         self.game.gamedisplays.blit(self.game.assets['carimg'], (self.x, self.y))
@@ -593,6 +612,7 @@ class Obstacle:
             self.x_change *= -1
 
         if self.y > self.game.display_height:
+            self.shoot()
             self.y = -self.height
             self.x = random.randrange(170, (self.game.display_width - 170))
             self.image = random.choice(self.game.assets['obstacle_cars'])
@@ -610,6 +630,10 @@ class Obstacle:
 
     def draw(self):
         self.game.gamedisplays.blit(self.image, (self.x, self.y))
+
+    def shoot(self):
+        bullet = EnemyBullet(self.game, self.x + self.width / 2 - 2, self.y + self.height)
+        self.game.enemy_bullets.append(bullet)
 
 if __name__ == '__main__':
     game = Game()
