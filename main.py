@@ -382,9 +382,9 @@ class Game:
             self.gamedisplays.blit(text_surf, text_rect)
 
             font = pygame.font.SysFont(None, 40)
-            score_text = font.render("Score: " + str(self.score), True, BLACK)
+            score_text = font.render("Score: " + str(self.score), True, GREEN)
             self.gamedisplays.blit(score_text, (self.display_width / 2 - score_text.get_width() / 2, self.display_height / 2 + 50))
-            highscore_text = font.render("High Score: " + str(self.highscore), True, BLACK)
+            highscore_text = font.render("High Score: " + str(self.highscore), True, GREEN)
             self.gamedisplays.blit(highscore_text, (self.display_width / 2 - highscore_text.get_width() / 2, self.display_height / 2 + 100))
 
 
@@ -546,7 +546,7 @@ class Bullet:
 class EnemyBullet(Bullet):
     def __init__(self, game, x, y):
         super().__init__(game, x, y)
-        self.speed = 10
+        self.speed = -10
         self.color = (255, 0, 0) # Red
 
 class Explosion:
