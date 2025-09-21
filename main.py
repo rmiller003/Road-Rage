@@ -108,7 +108,7 @@ class Game:
                 assets['sounds']['engine'] = pygame.mixer.Sound('engine.mp3')
                 assets['sounds']['crash'] = pygame.mixer.Sound('crash.mp3')
                 assets['sounds']['horn'] = pygame.mixer.Sound('horn.mp3')
-                assets['sounds']['brake'] = pygame.mixer.Sound('breaks.mp3')
+                assets['sounds']['breaks'] = pygame.mixer.Sound('breaks.mp3')
                 assets['sounds']['beep'] = pygame.mixer.Sound('beep.mp3')
                 assets['sounds']['go'] = pygame.mixer.Sound('go.mp3')
                 assets['sounds']['engine2'] = pygame.mixer.Sound('engine2.mp3')
@@ -600,6 +600,7 @@ class Player:
         self.x = 372
         self.y = (game.display_height * 0.6)
         self.x_change = 0
+        self.y_change = 0
         self.width = CAR_WIDTH
         self.height = self.game.assets['carimg'].get_height()
 
@@ -611,14 +612,17 @@ class Player:
                 self.x_change = 5
             elif event.key == pygame.K_p:
                 self.game.toggle_pause()
-            # Acceleration and Braking controls
             elif event.key == pygame.K_UP:
+                self.y_change = -5
+            elif event.key == pygame.K_DOWN:
+                self.y_change = 5
+            elif event.key == pygame.K_LALT:
                 # ACCELERATION: Decrease the speed offset to make obstacles move slower,
                 # creating the illusion of the player car accelerating.
                 self.game.speed_offset = max(-5, self.game.speed_offset - 2)
                 if self.game.assets['sounds'] and 'engine' in self.game.assets['sounds']:
                     self.game.assets['sounds']['engine'].play()
-            elif event.key == pygame.K_DOWN:
+            elif event.key == pygame.K_LCTRL:
                 # BRAKING: Increase the speed offset to make obstacles move faster,
                 # creating the illusion of the player car braking.
                 self.game.speed_offset = min(10, self.game.speed_offset + 2)
@@ -632,13 +636,20 @@ class Player:
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
                 self.x_change = 0
+            if event.key == pygame.K_UP or event.key == pygame.K_DOWN:
+                self.y_change = 0
 
     def update(self):
         self.x += self.x_change
-        if self.x > 690 - CAR_WIDTH:
-            self.x = 690 - CAR_WIDTH
+        self.y += self.y_change
+        if self.x > 690 - self.width:
+            self.x = 690 - self.width
         if self.x < 110:
             self.x = 110
+        if self.y > self.game.display_height - self.height:
+            self.y = self.game.display_height - self.height
+        if self.y < 0:
+            self.y = 0
 
     def shoot(self):
         if self.game.assets['sounds'] and 'gun' in self.game.assets['sounds']:
