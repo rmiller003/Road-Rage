@@ -616,13 +616,13 @@ class Player:
                 self.y_change = -5
             elif event.key == pygame.K_DOWN:
                 self.y_change = 5
-            elif event.key == pygame.K_LALT:
+            elif event.key == pygame.K_d:
                 # ACCELERATION: Decrease the speed offset to make obstacles move slower,
                 # creating the illusion of the player car accelerating.
                 self.game.speed_offset = max(-5, self.game.speed_offset - 2)
                 if self.game.assets['sounds'] and 'engine' in self.game.assets['sounds']:
                     self.game.assets['sounds']['engine'].play()
-            elif event.key == pygame.K_LCTRL:
+            elif event.key == pygame.K_a:
                 # BRAKING: Increase the speed offset to make obstacles move faster,
                 # creating the illusion of the player car braking.
                 self.game.speed_offset = min(10, self.game.speed_offset + 2)
