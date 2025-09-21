@@ -620,14 +620,14 @@ class Player:
                 # ACCELERATION: Decrease the speed offset to make obstacles move slower,
                 # creating the illusion of the player car accelerating.
                 self.game.speed_offset = max(-5, self.game.speed_offset - 2)
-                if self.game.assets['sounds'] and 'engine' in self.game.assets['sounds']:
-                    self.game.assets['sounds']['engine'].play()
+                if self.game.assets['sounds'] and 'engine2' in self.game.assets['sounds']:
+                    self.game.assets['sounds']['engine2'].play()
             elif event.key == pygame.K_a:
                 # BRAKING: Increase the speed offset to make obstacles move faster,
                 # creating the illusion of the player car braking.
                 self.game.speed_offset = min(10, self.game.speed_offset + 2)
-                if self.game.assets['sounds'] and 'brake' in self.game.assets['sounds']:
-                    self.game.assets['sounds']['brake'].play()
+                if self.game.assets['sounds'] and 'breaks' in self.game.assets['sounds']:
+                    self.game.assets['sounds']['breaks'].play()
             elif event.key == pygame.K_LSHIFT:
                 if self.game.assets['sounds']:
                     self.game.assets['sounds']['horn'].play()
@@ -683,7 +683,7 @@ class Obstacle:
         if self.x < 110 or self.x > 690 - self.width:
             self.x_change *= -1
 
-        if not self.has_fired and self.y > self.game.player.y:
+        if self.game.level >= 2 and not self.has_fired and self.y > self.game.player.y:
             self.shoot()
             self.has_fired = True
 
