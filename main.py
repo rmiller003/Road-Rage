@@ -325,9 +325,9 @@ class Game:
             for explosion in self.explosions:
                 explosion.draw()
 
-            # The speed displayed in the HUD will be the speed of the first car in the list
-            display_speed = (self.obstacles[0].base_speed + self.speed_offset) if self.obstacles else (9 + self.speed_offset)
-            self.display_hud(display_speed)
+            # The speed displayed in the HUD will be the speed of the first car in the list,
+            # including the player's speed offset for acceleration/braking.
+            self.display_hud(self.speed_offset)
             self.button("PAUSE", 650, 0, 150, 50, BLUE, BRIGHT_BLUE, self.toggle_pause)
 
             if self.check_crash():
@@ -381,8 +381,10 @@ class Game:
             if hasattr(self, 'engine_channel'):
                 self.engine_channel.stop()
             self.assets['sounds']['crash'].play()
-        self.lives -= 1
-        if self.lives > 0:
+
+        self.lose_life()
+
+        if self.game_state != 'GAME_OVER':
             large_text = pygame.font.Font('freesansbold.ttf', 80)
             text_surf, text_rect = self.text_objects("YOU CRASHED", large_text)
             text_rect.center = (self.display_width / 2, self.display_height / 2)
@@ -394,29 +396,16 @@ class Game:
             self.game_state = 'PLAYING'
             if self.assets['sounds']:
                 self.engine_channel.play(self.assets['sounds']['engine'], -1)
-        else:
-            self.game_state = 'GAME_OVER'
 
     def handle_player_hit(self):
         self.explosions.append(Explosion(self, self.player.x, self.player.y))
-        if self.assets['sounds']:
-            if hasattr(self, 'engine_channel'):
-                self.engine_channel.stop()
+        if self.assets['sounds'] and 'explosion' in self.assets['sounds']:
             self.assets['sounds']['explosion'].play()
+        self.lose_life()
+
+    def lose_life(self):
         self.lives -= 1
-        if self.lives > 0:
-            large_text = pygame.font.Font('freesansbold.ttf', 80)
-            text_surf, text_rect = self.text_objects("YOU GOT HIT", large_text)
-            text_rect.center = (self.display_width / 2, self.display_height / 2)
-            self.gamedisplays.blit(text_surf, text_rect)
-            pygame.display.update()
-            time.sleep(2)
-            self.player = Player(self)
-            self.obstacles = [Obstacle(self)]
-            self.game_state = 'PLAYING'
-            if self.assets['sounds']:
-                self.engine_channel.play(self.assets['sounds']['engine'], -1)
-        else:
+        if self.lives <= 0:
             self.game_state = 'GAME_OVER'
 
     def start_game(self):
@@ -483,7 +472,7 @@ class Game:
         text_surface = font.render(text, True, BLACK)
         return text_surface, text_surface.get_rect()
 
-    def display_hud(self, speed):
+    def display_hud(self, speed_offset):
         font = pygame.font.SysFont(None, 25)
 
         passed_text = font.render("Passed: " + str(self.passed), True, BLACK)
@@ -498,12 +487,15 @@ class Game:
         highscore_text = font.render("High Score: " + str(self.highscore), True, BLACK)
         self.gamedisplays.blit(highscore_text, (0, 90))
 
-        self.draw_speedometer(speed)
+        self.draw_speedometer(speed_offset)
 
-    def draw_speedometer(self, speed):
+    def draw_speedometer(self, speed_offset):
         x = self.display_width - 100
-        y = self.display_height - 100
+        y = 100
         radius = 50
+
+        base_speed = 9
+        speed = base_speed - speed_offset
 
         # Draw the speedometer arc
         pygame.draw.arc(self.gamedisplays, BLACK, (x - radius, y - radius, radius * 2, radius * 2), math.pi, 2 * math.pi, 3)
@@ -518,6 +510,15 @@ class Game:
         end_x = x + radius * math.cos(angle)
         end_y = y + radius * math.sin(angle)
         pygame.draw.line(self.gamedisplays, RED, (x, y), (end_x, end_y), 3)
+
+        font = pygame.font.SysFont(None, 25)
+        text = font.render("Mph", True, BLACK)
+        self.gamedisplays.blit(text, (x - text.get_width() // 2, y + 10))
+
+        # Draw speed text
+        font = pygame.font.SysFont(None, 30)
+        speed_text = font.render(str(int(speed)), True, BLACK)
+        self.gamedisplays.blit(speed_text, (x - speed_text.get_width() // 2, y - speed_text.get_height() // 2))
 
     def draw_background(self):
         self.gamedisplays.fill(GRAY)
@@ -545,33 +546,34 @@ class Game:
 
     def check_player_hit(self):
         for bullet in self.enemy_bullets:
-            if self.player.y < bullet.y + bullet.height and self.player.y + CAR_WIDTH > bullet.y:
-                if self.player.x > bullet.x and self.player.x < bullet.x + bullet.width or \
-                   self.player.x + CAR_WIDTH > bullet.x and self.player.x + CAR_WIDTH < bullet.x + bullet.width:
-                    self.enemy_bullets.remove(bullet)
-                    return True
+            player_rect = pygame.Rect(self.player.x, self.player.y, self.player.width, self.player.height)
+            bullet_rect = pygame.Rect(bullet.x, bullet.y, bullet.width, bullet.height)
+            if player_rect.colliderect(bullet_rect):
+                self.enemy_bullets.remove(bullet)
+                return True
         return False
 
 class Bullet:
-    def __init__(self, game, x, y):
+    def __init__(self, game, x, y, speed_x=0, speed_y=-10):
         self.game = game
         self.x = x
         self.y = y
-        self.speed = -10
+        self.speed_x = speed_x
+        self.speed_y = speed_y
         self.width = 4
         self.height = 10
         self.color = (255, 255, 0) # Yellow
 
     def update(self):
-        self.y += self.speed
+        self.x += self.speed_x
+        self.y += self.speed_y
 
     def draw(self):
         pygame.draw.rect(self.game.gamedisplays, self.color, (self.x, self.y, self.width, self.height))
 
 class EnemyBullet(Bullet):
-    def __init__(self, game, x, y):
-        super().__init__(game, x, y)
-        self.speed = -10
+    def __init__(self, game, x, y, speed_x, speed_y):
+        super().__init__(game, x, y, speed_x, speed_y)
         self.color = (255, 0, 0) # Red
 
 class Explosion:
@@ -598,6 +600,8 @@ class Player:
         self.x = 372
         self.y = (game.display_height * 0.6)
         self.x_change = 0
+        self.width = CAR_WIDTH
+        self.height = self.game.assets['carimg'].get_height()
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -609,17 +613,17 @@ class Player:
                 self.game.toggle_pause()
             # Acceleration and Braking controls
             elif event.key == pygame.K_UP:
-                # BRAKING: Increase the speed offset to make obstacles move faster,
-                # creating the illusion of the player car braking.
-                self.game.speed_offset = min(10, self.game.speed_offset + 2)
-                if self.game.assets['sounds']:
-                    self.game.assets['sounds']['brake'].play()
-            elif event.key == pygame.K_DOWN:
                 # ACCELERATION: Decrease the speed offset to make obstacles move slower,
                 # creating the illusion of the player car accelerating.
                 self.game.speed_offset = max(-5, self.game.speed_offset - 2)
-                if self.game.assets['sounds'] and 'engine2' in self.game.assets['sounds']:
-                    self.game.assets['sounds']['engine2'].play()
+                if self.game.assets['sounds'] and 'engine' in self.game.assets['sounds']:
+                    self.game.assets['sounds']['engine'].play()
+            elif event.key == pygame.K_DOWN:
+                # BRAKING: Increase the speed offset to make obstacles move faster,
+                # creating the illusion of the player car braking.
+                self.game.speed_offset = min(10, self.game.speed_offset + 2)
+                if self.game.assets['sounds'] and 'brake' in self.game.assets['sounds']:
+                    self.game.assets['sounds']['brake'].play()
             elif event.key == pygame.K_LSHIFT:
                 if self.game.assets['sounds']:
                     self.game.assets['sounds']['horn'].play()
@@ -641,8 +645,8 @@ class Player:
             self.game.assets['sounds']['gun'].play()
 
         # Double bullets
-        bullet1 = Bullet(self.game, self.x + 10, self.y)
-        bullet2 = Bullet(self.game, self.x + CAR_WIDTH - 14, self.y)
+        bullet1 = Bullet(self.game, self.x + 10, self.y, speed_y=-10)
+        bullet2 = Bullet(self.game, self.x + CAR_WIDTH - 14, self.y, speed_y=-10)
         self.game.bullets.append(bullet1)
         self.game.bullets.append(bullet2)
 
@@ -693,7 +697,18 @@ class Obstacle:
         self.game.gamedisplays.blit(self.image, (self.x, self.y))
 
     def shoot(self):
-        bullet = EnemyBullet(self.game, self.x + self.width / 2 - 2, self.y + self.height)
+        bullet_speed = 10
+        dx = (self.game.player.x + self.game.player.width / 2) - (self.x + self.width / 2)
+        dy = (self.game.player.y + self.game.player.height / 2) - (self.y + self.height / 2)
+
+        dist = math.sqrt(dx * dx + dy * dy)
+        if dist == 0:
+            return
+
+        speed_x = (dx / dist) * bullet_speed
+        speed_y = (dy / dist) * bullet_speed
+
+        bullet = EnemyBullet(self.game, self.x + self.width / 2 - 2, self.y + self.height, speed_x, speed_y)
         self.game.enemy_bullets.append(bullet)
 
 if __name__ == '__main__':
