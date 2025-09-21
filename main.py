@@ -330,29 +330,11 @@ class Game:
             self.display_hud(display_speed)
             self.button("PAUSE", 650, 0, 150, 50, BLUE, BRIGHT_BLUE, self.toggle_pause)
 
-            if self.check_crash() or self.check_player_hit():
-                if self.assets['sounds']:
-                    if hasattr(self, 'engine_channel'):
-                        self.engine_channel.stop()
-                    self.assets['sounds']['crash'].play()
+            if self.check_crash():
+                self.handle_crash()
 
-                self.lives -= 1
-                if self.lives > 0:
-                    # Draw the crash message on top of the final frame
-                    large_text = pygame.font.Font('freesansbold.ttf', 80)
-                    text_surf, text_rect = self.text_objects("YOU CRASHED", large_text)
-                    text_rect.center = (self.display_width / 2, self.display_height / 2)
-                    self.gamedisplays.blit(text_surf, text_rect)
-                    pygame.display.update()
-                    time.sleep(2)
-
-                    self.player = Player(self)
-                    self.obstacles = [Obstacle(self)]
-                    self.game_state = 'PLAYING'
-                    if self.assets['sounds']:
-                        self.engine_channel.play(self.assets['sounds']['engine'], -1)
-                else:
-                    self.game_state = 'GAME_OVER'
+            if self.check_player_hit():
+                self.handle_player_hit()
 
             pygame.display.update()
             self.clock.tick(60)
@@ -393,6 +375,49 @@ class Game:
 
             pygame.display.update()
             self.clock.tick(30)
+
+    def handle_crash(self):
+        if self.assets['sounds']:
+            if hasattr(self, 'engine_channel'):
+                self.engine_channel.stop()
+            self.assets['sounds']['crash'].play()
+        self.lives -= 1
+        if self.lives > 0:
+            large_text = pygame.font.Font('freesansbold.ttf', 80)
+            text_surf, text_rect = self.text_objects("YOU CRASHED", large_text)
+            text_rect.center = (self.display_width / 2, self.display_height / 2)
+            self.gamedisplays.blit(text_surf, text_rect)
+            pygame.display.update()
+            time.sleep(2)
+            self.player = Player(self)
+            self.obstacles = [Obstacle(self)]
+            self.game_state = 'PLAYING'
+            if self.assets['sounds']:
+                self.engine_channel.play(self.assets['sounds']['engine'], -1)
+        else:
+            self.game_state = 'GAME_OVER'
+
+    def handle_player_hit(self):
+        self.explosions.append(Explosion(self, self.player.x, self.player.y))
+        if self.assets['sounds']:
+            if hasattr(self, 'engine_channel'):
+                self.engine_channel.stop()
+            self.assets['sounds']['explosion'].play()
+        self.lives -= 1
+        if self.lives > 0:
+            large_text = pygame.font.Font('freesansbold.ttf', 80)
+            text_surf, text_rect = self.text_objects("YOU GOT HIT", large_text)
+            text_rect.center = (self.display_width / 2, self.display_height / 2)
+            self.gamedisplays.blit(text_surf, text_rect)
+            pygame.display.update()
+            time.sleep(2)
+            self.player = Player(self)
+            self.obstacles = [Obstacle(self)]
+            self.game_state = 'PLAYING'
+            if self.assets['sounds']:
+                self.engine_channel.play(self.assets['sounds']['engine'], -1)
+        else:
+            self.game_state = 'GAME_OVER'
 
     def start_game(self):
         self.new_game()
@@ -584,17 +609,17 @@ class Player:
                 self.game.toggle_pause()
             # Acceleration and Braking controls
             elif event.key == pygame.K_UP:
-                # ACCELERATION: Decrease the speed offset to make obstacles move slower,
-                # creating the illusion of the player car accelerating.
-                self.game.speed_offset = max(-5, self.game.speed_offset - 2)
-                if self.game.assets['sounds'] and 'engine2' in self.game.assets['sounds']:
-                    self.game.assets['sounds']['engine2'].play()
-            elif event.key == pygame.K_DOWN:
                 # BRAKING: Increase the speed offset to make obstacles move faster,
                 # creating the illusion of the player car braking.
                 self.game.speed_offset = min(10, self.game.speed_offset + 2)
                 if self.game.assets['sounds']:
                     self.game.assets['sounds']['brake'].play()
+            elif event.key == pygame.K_DOWN:
+                # ACCELERATION: Decrease the speed offset to make obstacles move slower,
+                # creating the illusion of the player car accelerating.
+                self.game.speed_offset = max(-5, self.game.speed_offset - 2)
+                if self.game.assets['sounds'] and 'engine2' in self.game.assets['sounds']:
+                    self.game.assets['sounds']['engine2'].play()
             elif event.key == pygame.K_LSHIFT:
                 if self.game.assets['sounds']:
                     self.game.assets['sounds']['horn'].play()
