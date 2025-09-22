@@ -6,7 +6,7 @@ import math
 
 # Constants
 DISPLAY_WIDTH = 800
-DISPLAY_HEIGHT = 600
+DISPLAY_HEIGHT = 800
 CAR_WIDTH = 56
 HIGHSCORE_FILE = "highscore.txt"
 
