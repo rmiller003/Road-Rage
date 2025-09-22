@@ -756,7 +756,8 @@ class Obstacle:
             self.x_change *= -1
 
         if self.game.level >= 2 and not self.has_fired and self.y > self.game.player.y:
-            self.shoot()
+            if random.random() < 0.5:  # 50% chance to shoot
+                self.shoot()
             self.has_fired = True
 
         if self.y > self.game.display_height:
