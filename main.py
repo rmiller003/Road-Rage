@@ -312,6 +312,20 @@ class Game:
                         self.score += 25
                         break
 
+            # Handle deflected enemy bullet-obstacle collisions
+            for bullet in self.enemy_bullets[:]:
+                if bullet.deflected:
+                    for obstacle in self.obstacles[:]:
+                        if bullet.y < obstacle.y + obstacle.height and bullet.y + bullet.height > obstacle.y and \
+                           bullet.x < obstacle.x + obstacle.width and bullet.x + bullet.width > obstacle.x:
+                            if self.assets['sounds'] and 'explosion' in self.assets['sounds']:
+                                self.assets['sounds']['explosion'].play()
+                            self.explosions.append(Explosion(self, obstacle.x, obstacle.y))
+                            self.obstacles.remove(obstacle)
+                            self.enemy_bullets.remove(bullet)
+                            self.score += 25  # Award points for deflected shot kill
+                            break
+
             self.background_y += (9 + self.speed_offset)
 
             self.draw_background()
@@ -561,6 +575,7 @@ class Game:
 
             if collided_with_shield:
                 bullet.color = (0, 255, 255)  # Change to cyan to show it's deflected
+                bullet.deflected = True
                 continue  # Bullet is deflected, don't check for player collision
 
             # Check player collision
@@ -593,6 +608,7 @@ class EnemyBullet(Bullet):
     def __init__(self, game, x, y, speed_x, speed_y):
         super().__init__(game, x, y, speed_x, speed_y)
         self.color = (255, 0, 0) # Red
+        self.deflected = False
 
 class Explosion:
     def __init__(self, game, x, y):
