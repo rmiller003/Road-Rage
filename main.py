@@ -71,6 +71,7 @@ class Game:
         self.bullets = []
         self.enemy_bullets = []
         self.explosions = []
+        self.powerups = []
         self.speed_offset = 0
         self.game_state = 'INTRO'
 
@@ -150,6 +151,7 @@ class Game:
         pygame.display.update()
         time.sleep(2)
 
+        self.player.shield_health = 100
         self.game_state = 'PLAYING'
 
     def toggle_pause(self):
@@ -286,6 +288,11 @@ class Game:
                 self.obstacles.append(Obstacle(self))
 
             self.player.update()
+            if len(self.powerups) < 1 and random.random() < 0.01:
+                self.powerups.append(PowerUp(self))
+
+            for powerup in self.powerups:
+                powerup.update()
             for obstacle in self.obstacles:
                 obstacle.update()
             for bullet in self.bullets:
@@ -332,6 +339,8 @@ class Game:
             self.player.draw()
             for obstacle in self.obstacles:
                 obstacle.draw()
+            for powerup in self.powerups:
+                powerup.draw()
             for bullet in self.bullets:
                 bullet.draw()
             for bullet in self.enemy_bullets:
@@ -348,9 +357,17 @@ class Game:
                 self.handle_crash()
 
             self.check_bullet_collisions()
+            self.check_powerup_collision()
 
             pygame.display.update()
             self.clock.tick(60)
+
+    def check_powerup_collision(self):
+        for powerup in self.powerups[:]:
+            powerup_rect = pygame.Rect(powerup.x, powerup.y, powerup.width, powerup.height)
+            if self.player.get_rect().colliderect(powerup_rect):
+                self.powerups.remove(powerup)
+                self.player.activate_powerup()
 
     def game_over_loop(self):
         if self.assets['sounds']:
@@ -500,6 +517,9 @@ class Game:
         highscore_text = font.render("High Score: " + str(self.highscore), True, BLACK)
         self.gamedisplays.blit(highscore_text, (0, 90))
 
+        shield_text = font.render("Shield: " + str(self.player.shield_health), True, BLUE)
+        self.gamedisplays.blit(shield_text, (0, 110))
+
         self.draw_speedometer(speed_offset)
 
     def draw_speedometer(self, speed_offset):
@@ -562,21 +582,22 @@ class Game:
             bullet_rect = pygame.Rect(bullet.x, bullet.y, bullet.width, bullet.height)
 
             # Check shield collision first
-            left_shield_rect = self.player.get_left_shield_rect()
-            right_shield_rect = self.player.get_right_shield_rect()
+            if self.player.shield_health > 0:
+                front_shield_rect = self.player.get_front_shield_rect()
+                back_shield_rect = self.player.get_back_shield_rect()
 
-            collided_with_shield = False
-            if left_shield_rect and bullet_rect.colliderect(left_shield_rect):
-                bullet.speed_x *= -1  # Deflect horizontally
-                collided_with_shield = True
-            elif right_shield_rect and bullet_rect.colliderect(right_shield_rect):
-                bullet.speed_x *= -1  # Deflect horizontally
-                collided_with_shield = True
+                collided_with_shield = False
+                if front_shield_rect and bullet_rect.colliderect(front_shield_rect):
+                    self.enemy_bullets.remove(bullet)
+                    self.player.shield_health -= 25
+                    collided_with_shield = True
+                elif back_shield_rect and bullet_rect.colliderect(back_shield_rect):
+                    self.enemy_bullets.remove(bullet)
+                    self.player.shield_health -= 25
+                    collided_with_shield = True
 
-            if collided_with_shield:
-                bullet.color = (0, 255, 255)  # Change to cyan to show it's deflected
-                bullet.deflected = True
-                continue  # Bullet is deflected, don't check for player collision
+                if collided_with_shield:
+                    continue  # Bullet is handled, don't check for player collision
 
             # Check player collision
             player_rect = self.player.get_rect()
@@ -627,6 +648,28 @@ class Explosion:
         if self.image:
             self.game.gamedisplays.blit(self.image, (self.x, self.y))
 
+class PowerUp:
+    def __init__(self, game):
+        self.game = game
+        self.x = random.randrange(200, game.display_width - 200)
+        self.y = -600
+        self.base_speed = 7
+        self.width = 30
+        self.height = 30
+        # Simple green rectangle for the power-up
+        self.image = pygame.Surface([self.width, self.height])
+        self.image.fill(GREEN)
+
+    def update(self):
+        self.y += self.base_speed + self.game.speed_offset
+        # Remove power-up if it goes off-screen
+        if self.y > self.game.display_height:
+            if self in self.game.powerups:
+                self.game.powerups.remove(self)
+
+    def draw(self):
+        self.game.gamedisplays.blit(self.image, (self.x, self.y))
+
 class Player:
     def __init__(self, game):
         self.game = game
@@ -637,22 +680,31 @@ class Player:
         self.y_change = 0
         self.width = CAR_WIDTH
         self.height = self.game.assets['carimg'].get_height()
-        self.shield_width = 5
-        self.shield_active = True
+        self.shield_height = 5
+        self.shield_health = 100
         self.is_accelerating = False
+        self.power_up_active = False
+        self.power_up_end_time = 0
+
+    def activate_powerup(self):
+        self.power_up_active = True
+        # Power-up duration: 5 seconds
+        self.power_up_end_time = time.time() + 5
+        # Speed up to 25 Mph (base speed is 9)
+        self.game.speed_offset = 16
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
-    def get_left_shield_rect(self):
-        if not self.shield_active:
+    def get_front_shield_rect(self):
+        if self.shield_health <= 0:
             return None
-        return pygame.Rect(self.x - self.shield_width - 2, self.y, self.shield_width, self.height)
+        return pygame.Rect(self.x, self.y - self.shield_height - 2, self.width, self.shield_height)
 
-    def get_right_shield_rect(self):
-        if not self.shield_active:
+    def get_back_shield_rect(self):
+        if self.shield_health <= 0:
             return None
-        return pygame.Rect(self.x + self.width + 2, self.y, self.shield_width, self.height)
+        return pygame.Rect(self.x, self.y + self.height + 2, self.width, self.shield_height)
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -693,6 +745,11 @@ class Player:
                 self.is_accelerating = False
 
     def update(self):
+        if self.power_up_active and time.time() > self.power_up_end_time:
+            self.power_up_active = False
+            # Reset speed
+            self.game.speed_offset = 0
+
         self.x += self.x_change
         self.y += self.y_change
         if self.x > 690 - self.width:
@@ -714,9 +771,31 @@ class Player:
         self.game.bullets.append(bullet1)
         self.game.bullets.append(bullet2)
 
+    def get_red_car(self):
+        if not hasattr(self, 'red_car_image'):
+            self.red_car_image = self.game.assets['carimg'].copy()
+            red_surface = pygame.Surface(self.red_car_image.get_size(), pygame.SRCALPHA)
+            red_surface.fill((255, 0, 0, 128))
+            self.red_car_image.blit(red_surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        return self.red_car_image
+
     def draw(self):
-        self.game.gamedisplays.blit(self.game.assets['carimg'], (self.x, self.y))
-        if self.is_accelerating:
+        car_to_draw = self.game.assets['carimg']
+        if self.power_up_active:
+            car_to_draw = self.get_red_car()
+            # Super jet flame
+            flame_length = random.randint(30, 50)
+            flame_color = (255, 69, 0)  # OrangeRed
+            points = [
+                (self.x + self.width * 0.25, self.y + self.height),
+                (self.x + self.width * 0.75, self.y + self.height),
+                (self.x + self.width * 0.5, self.y + self.height + flame_length)
+            ]
+            pygame.draw.polygon(self.game.gamedisplays, flame_color, points)
+
+        self.game.gamedisplays.blit(car_to_draw, (self.x, self.y))
+
+        if self.is_accelerating and not self.power_up_active:
             flame_length = random.randint(15, 25)
             flame_color = (255, 165, 0)  # Orange
             points = [
@@ -725,16 +804,16 @@ class Player:
                 (self.x + self.width * 0.5, self.y + self.height + flame_length)
             ]
             pygame.draw.polygon(self.game.gamedisplays, flame_color, points)
-        if self.shield_active:
+        if self.shield_health > 0:
             shield_color = (0, 255, 255)  # Cyan
-            # Left shield
-            left_shield_rect = self.get_left_shield_rect()
-            if left_shield_rect:
-                pygame.draw.rect(self.game.gamedisplays, shield_color, left_shield_rect)
-            # Right shield
-            right_shield_rect = self.get_right_shield_rect()
-            if right_shield_rect:
-                pygame.draw.rect(self.game.gamedisplays, shield_color, right_shield_rect)
+            # Front shield
+            front_shield_rect = self.get_front_shield_rect()
+            if front_shield_rect:
+                pygame.draw.rect(self.game.gamedisplays, shield_color, front_shield_rect)
+            # Back shield
+            back_shield_rect = self.get_back_shield_rect()
+            if back_shield_rect:
+                pygame.draw.rect(self.game.gamedisplays, shield_color, back_shield_rect)
 
 class Obstacle:
     def __init__(self, game):
