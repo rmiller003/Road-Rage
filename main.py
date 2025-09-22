@@ -388,16 +388,17 @@ class Game:
                         self.start_game()
 
             self.gamedisplays.blit(self.assets['intro_background'], (0, 0))
-            large_text = pygame.font.Font('freesansbold.ttf', 115)
-            text_surf, text_rect = self.text_objects("GAME OVER", large_text)
-            text_rect.center = (self.display_width / 2, self.display_height / 2 - 50)
-            self.gamedisplays.blit(text_surf, text_rect)
 
             font = pygame.font.SysFont(None, 40)
             score_text = font.render("Score: " + str(self.score), True, GREEN)
-            self.gamedisplays.blit(score_text, (self.display_width / 2 - score_text.get_width() / 2, self.display_height / 2 + 50))
+            self.gamedisplays.blit(score_text, (self.display_width / 2 - score_text.get_width() / 2, 50))
             highscore_text = font.render("High Score: " + str(self.highscore), True, GREEN)
-            self.gamedisplays.blit(highscore_text, (self.display_width / 2 - highscore_text.get_width() / 2, self.display_height / 2 + 100))
+            self.gamedisplays.blit(highscore_text, (self.display_width / 2 - highscore_text.get_width() / 2, 100))
+
+            large_text = pygame.font.Font('freesansbold.ttf', 115)
+            text_surf, text_rect = self.text_objects("GAME OVER", large_text)
+            text_rect.center = (self.display_width / 2, self.display_height / 2)
+            self.gamedisplays.blit(text_surf, text_rect)
 
 
             self.button("RESTART", 150, 450, 150, 50, GREEN, BRIGHT_GREEN, self.start_game)
