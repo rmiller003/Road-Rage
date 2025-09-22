@@ -60,7 +60,7 @@ class Game:
 
     def new_game(self):
         self.background_y = 0
-        self.lives = 3
+        self.lives = 4
         self.level = 1
         self.crash_time = 0
         self.score = 0
@@ -570,11 +570,23 @@ class Game:
             self.gamedisplays.blit(self.assets['strip'], (680, rel_y_strip + i * self.assets['strip'].get_rect().height))
 
     def check_crash(self):
-        for obstacle in self.obstacles:
-            if self.player.y < obstacle.y + obstacle.height:
-                if self.player.x > obstacle.x and self.player.x < obstacle.x + obstacle.width or \
-                   self.player.x + CAR_WIDTH > obstacle.x and self.player.x + CAR_WIDTH < obstacle.x + obstacle.width:
-                    return True
+        for obstacle in self.obstacles[:]:
+            if self.player.get_rect().colliderect(obstacle.get_rect()):
+                if self.player.shield_health > 0:
+                    # Bounce effect
+                    self.player.shield_health -= 50
+                    self.player.y += 10  # Move player back
+                    if self.player.shield_health < 0:
+                        self.player.shield_health = 0
+
+                    # Destroy the obstacle
+                    self.obstacles.remove(obstacle)
+                    self.explosions.append(Explosion(self, obstacle.x, obstacle.y))
+                    if self.assets['sounds'] and 'explosion' in self.assets['sounds']:
+                        self.assets['sounds']['explosion'].play()
+                    return False  # No game over crash
+                else:
+                    return True  # Real crash
         return False
 
     def check_bullet_collisions(self):
@@ -688,8 +700,8 @@ class Player:
 
     def activate_powerup(self):
         self.power_up_active = True
-        # Power-up duration: 5 seconds
-        self.power_up_end_time = time.time() + 5
+        # Power-up duration: 6 seconds
+        self.power_up_end_time = time.time() + 6
         # Speed up to 25 Mph (base speed is 9)
         self.game.speed_offset = 16
 
@@ -747,8 +759,8 @@ class Player:
     def update(self):
         if self.power_up_active and time.time() > self.power_up_end_time:
             self.power_up_active = False
-            # Reset speed
-            self.game.speed_offset = 0
+            # Return to 13 Mph
+            self.game.speed_offset = 4
 
         self.x += self.x_change
         self.y += self.y_change
@@ -806,14 +818,13 @@ class Player:
             pygame.draw.polygon(self.game.gamedisplays, flame_color, points)
         if self.shield_health > 0:
             shield_color = (0, 255, 255)  # Cyan
-            # Front shield
-            front_shield_rect = self.get_front_shield_rect()
-            if front_shield_rect:
-                pygame.draw.rect(self.game.gamedisplays, shield_color, front_shield_rect)
-            # Back shield
-            back_shield_rect = self.get_back_shield_rect()
-            if back_shield_rect:
-                pygame.draw.rect(self.game.gamedisplays, shield_color, back_shield_rect)
+            shield_thickness = 4
+            # Curved front shield
+            front_arc_rect = pygame.Rect(self.x - 10, self.y - 15, self.width + 20, 30)
+            pygame.draw.arc(self.game.gamedisplays, shield_color, front_arc_rect, 0, math.pi, shield_thickness)
+            # Curved back shield
+            back_arc_rect = pygame.Rect(self.x - 10, self.y + self.height - 15, self.width + 20, 30)
+            pygame.draw.arc(self.game.gamedisplays, shield_color, back_arc_rect, math.pi, 2 * math.pi, shield_thickness)
 
 class Obstacle:
     def __init__(self, game):
@@ -826,6 +837,9 @@ class Obstacle:
         self.width = self.image.get_width()
         self.height = self.image.get_height()
         self.has_fired = False
+
+    def get_rect(self):
+        return pygame.Rect(self.x, self.y, self.width, self.height)
 
     def update(self):
         self.y += self.base_speed + self.game.speed_offset
