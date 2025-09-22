@@ -639,6 +639,7 @@ class Player:
         self.height = self.game.assets['carimg'].get_height()
         self.shield_width = 5
         self.shield_active = True
+        self.is_accelerating = False
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
@@ -671,6 +672,7 @@ class Player:
                 self.game.speed_offset = min(10, self.game.speed_offset + 2)
                 if self.game.assets['sounds'] and 'engine2' in self.game.assets['sounds']:
                     self.game.assets['sounds']['engine2'].play()
+                self.is_accelerating = True
             elif event.key == pygame.K_a:
                 # BRAKING: Decrease the speed offset to make obstacles move slower,
                 # creating the illusion of the player car braking.
@@ -687,6 +689,8 @@ class Player:
                 self.x_change = 0
             if event.key == pygame.K_UP or event.key == pygame.K_DOWN:
                 self.y_change = 0
+            if event.key == pygame.K_d:
+                self.is_accelerating = False
 
     def update(self):
         self.x += self.x_change
@@ -712,6 +716,15 @@ class Player:
 
     def draw(self):
         self.game.gamedisplays.blit(self.game.assets['carimg'], (self.x, self.y))
+        if self.is_accelerating:
+            flame_length = random.randint(15, 25)
+            flame_color = (255, 165, 0)  # Orange
+            points = [
+                (self.x + self.width * 0.25, self.y + self.height),
+                (self.x + self.width * 0.75, self.y + self.height),
+                (self.x + self.width * 0.5, self.y + self.height + flame_length)
+            ]
+            pygame.draw.polygon(self.game.gamedisplays, flame_color, points)
         if self.shield_active:
             shield_color = (0, 255, 255)  # Cyan
             # Left shield
