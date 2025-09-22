@@ -333,8 +333,7 @@ class Game:
             if self.check_crash():
                 self.handle_crash()
 
-            if self.check_player_hit():
-                self.handle_player_hit()
+            self.check_bullet_collisions()
 
             pygame.display.update()
             self.clock.tick(60)
@@ -397,7 +396,7 @@ class Game:
             if self.assets['sounds']:
                 self.engine_channel.play(self.assets['sounds']['engine'], -1)
 
-    def handle_player_hit(self):
+    def handle_player_hit_by_bullet(self):
         self.explosions.append(Explosion(self, self.player.x, self.player.y))
         if self.assets['sounds'] and 'explosion' in self.assets['sounds']:
             self.assets['sounds']['explosion'].play()
@@ -495,7 +494,7 @@ class Game:
         radius = 50
 
         base_speed = 9
-        speed = base_speed - speed_offset
+        speed = base_speed + speed_offset
 
         # Draw the speedometer arc
         pygame.draw.arc(self.gamedisplays, BLACK, (x - radius, y - radius, radius * 2, radius * 2), math.pi, 2 * math.pi, 3)
@@ -544,14 +543,33 @@ class Game:
                     return True
         return False
 
-    def check_player_hit(self):
-        for bullet in self.enemy_bullets:
-            player_rect = pygame.Rect(self.player.x, self.player.y, self.player.width, self.player.height)
+    def check_bullet_collisions(self):
+        for bullet in self.enemy_bullets[:]:  # Iterate over a copy
             bullet_rect = pygame.Rect(bullet.x, bullet.y, bullet.width, bullet.height)
+
+            # Check shield collision first
+            left_shield_rect = self.player.get_left_shield_rect()
+            right_shield_rect = self.player.get_right_shield_rect()
+
+            collided_with_shield = False
+            if left_shield_rect and bullet_rect.colliderect(left_shield_rect):
+                bullet.speed_x *= -1  # Deflect horizontally
+                collided_with_shield = True
+            elif right_shield_rect and bullet_rect.colliderect(right_shield_rect):
+                bullet.speed_x *= -1  # Deflect horizontally
+                collided_with_shield = True
+
+            if collided_with_shield:
+                bullet.color = (0, 255, 255)  # Change to cyan to show it's deflected
+                continue  # Bullet is deflected, don't check for player collision
+
+            # Check player collision
+            player_rect = self.player.get_rect()
             if player_rect.colliderect(bullet_rect):
                 self.enemy_bullets.remove(bullet)
-                return True
-        return False
+                self.handle_player_hit_by_bullet()
+                # break from loop since player is hit.
+                break
 
 class Bullet:
     def __init__(self, game, x, y, speed_x=0, speed_y=-10):
@@ -603,6 +621,21 @@ class Player:
         self.y_change = 0
         self.width = CAR_WIDTH
         self.height = self.game.assets['carimg'].get_height()
+        self.shield_width = 5
+        self.shield_active = True
+
+    def get_rect(self):
+        return pygame.Rect(self.x, self.y, self.width, self.height)
+
+    def get_left_shield_rect(self):
+        if not self.shield_active:
+            return None
+        return pygame.Rect(self.x - self.shield_width - 2, self.y, self.shield_width, self.height)
+
+    def get_right_shield_rect(self):
+        if not self.shield_active:
+            return None
+        return pygame.Rect(self.x + self.width + 2, self.y, self.shield_width, self.height)
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -616,16 +649,16 @@ class Player:
                 self.y_change = -5
             elif event.key == pygame.K_DOWN:
                 self.y_change = 5
-            elif event.key == pygame.K_a:
-                # ACCELERATION: Decrease the speed offset to make obstacles move slower,
+            elif event.key == pygame.K_d:
+                # ACCELERATION: Increase the speed offset to make obstacles move faster,
                 # creating the illusion of the player car accelerating.
-                self.game.speed_offset = max(-5, self.game.speed_offset - 2)
+                self.game.speed_offset = min(10, self.game.speed_offset + 2)
                 if self.game.assets['sounds'] and 'engine2' in self.game.assets['sounds']:
                     self.game.assets['sounds']['engine2'].play()
-            elif event.key == pygame.K_d:
-                # BRAKING: Increase the speed offset to make obstacles move faster,
+            elif event.key == pygame.K_a:
+                # BRAKING: Decrease the speed offset to make obstacles move slower,
                 # creating the illusion of the player car braking.
-                self.game.speed_offset = min(10, self.game.speed_offset + 2)
+                self.game.speed_offset = max(-5, self.game.speed_offset - 2)
                 if self.game.assets['sounds'] and 'breaks' in self.game.assets['sounds']:
                     self.game.assets['sounds']['breaks'].play()
             elif event.key == pygame.K_LSHIFT:
@@ -663,6 +696,16 @@ class Player:
 
     def draw(self):
         self.game.gamedisplays.blit(self.game.assets['carimg'], (self.x, self.y))
+        if self.shield_active:
+            shield_color = (0, 255, 255)  # Cyan
+            # Left shield
+            left_shield_rect = self.get_left_shield_rect()
+            if left_shield_rect:
+                pygame.draw.rect(self.game.gamedisplays, shield_color, left_shield_rect)
+            # Right shield
+            right_shield_rect = self.get_right_shield_rect()
+            if right_shield_rect:
+                pygame.draw.rect(self.game.gamedisplays, shield_color, right_shield_rect)
 
 class Obstacle:
     def __init__(self, game):
