@@ -390,9 +390,9 @@ class Game:
             self.gamedisplays.blit(self.assets['intro_background'], (0, 0))
 
             font = pygame.font.SysFont(None, 40)
-            score_text = font.render("Score: " + str(self.score), True, GREEN)
+            score_text = font.render("Score: " + str(self.score), True, BLACK)
             self.gamedisplays.blit(score_text, (self.display_width / 2 - score_text.get_width() / 2, 50))
-            highscore_text = font.render("High Score: " + str(self.highscore), True, GREEN)
+            highscore_text = font.render("High Score: " + str(self.highscore), True, BLACK)
             self.gamedisplays.blit(highscore_text, (self.display_width / 2 - highscore_text.get_width() / 2, 100))
 
             large_text = pygame.font.Font('freesansbold.ttf', 115)
