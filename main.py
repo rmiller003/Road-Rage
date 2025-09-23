@@ -582,7 +582,14 @@ class Game:
     def check_crash(self):
         for obstacle in self.obstacles[:]:
             if self.player.get_rect().colliderect(obstacle.get_rect()):
-                if self.player.shield_hits > 0:
+                if self.player.power_up_active:
+                    # Destroy the obstacle
+                    self.obstacles.remove(obstacle)
+                    self.explosions.append(Explosion(self, obstacle.x, obstacle.y))
+                    if self.assets['sounds'] and 'explosion' in self.assets['sounds']:
+                        self.assets['sounds']['explosion'].play()
+                    return False  # Player is invincible
+                elif self.player.shield_hits > 0:
                     # Bounce effect
                     self.player.shield_hits -= 2
                     self.player.y += 10  # Move player back
@@ -602,6 +609,11 @@ class Game:
     def check_bullet_collisions(self):
         for bullet in self.enemy_bullets[:]:  # Iterate over a copy
             bullet_rect = pygame.Rect(bullet.x, bullet.y, bullet.width, bullet.height)
+
+            # If player is powered up, they are invincible
+            if self.player.power_up_active and self.player.get_rect().colliderect(bullet_rect):
+                self.enemy_bullets.remove(bullet)
+                continue
 
             # Check shield collision first
             if self.player.shield_hits > 0:
@@ -710,8 +722,8 @@ class Player:
 
     def activate_powerup(self):
         self.power_up_active = True
-        # Power-up duration: 6 seconds
-        self.power_up_end_time = time.time() + 6
+        # Power-up duration: 7 seconds
+        self.power_up_end_time = time.time() + 7
         # Speed up to 25 Mph (base speed is 9)
         self.game.speed_offset = 16
 
@@ -771,6 +783,8 @@ class Player:
             self.power_up_active = False
             # Return to 13 Mph
             self.game.speed_offset = 4
+            # Restore shields to full
+            self.shield_hits = 8
 
         self.x += self.x_change
         self.y += self.y_change
