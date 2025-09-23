@@ -16,6 +16,7 @@ BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 GREEN = (0, 200, 0)
 BLUE = (0, 0, 200)
+YELLOW = (255, 255, 0)
 BRIGHT_RED = (255, 0, 0)
 BRIGHT_GREEN = (0, 255, 0)
 BRIGHT_BLUE = (0, 0, 255)
@@ -151,7 +152,7 @@ class Game:
         pygame.display.update()
         time.sleep(2)
 
-        self.player.shield_health = 100
+        self.player.shield_hits = 8
         self.game_state = 'PLAYING'
 
     def toggle_pause(self):
@@ -518,8 +519,16 @@ class Game:
         highscore_text = font.render("High Score: " + str(self.highscore), True, BLACK)
         self.gamedisplays.blit(highscore_text, (0, 90))
 
-        shield_text = font.render("Shield: " + str(self.player.shield_health), True, BLUE)
-        self.gamedisplays.blit(shield_text, (0, 110))
+        if self.player.shield_hits > 4:
+            shield_color = (0, 255, 255)  # Cyan
+        elif self.player.shield_hits > 2:
+            shield_color = YELLOW
+        else:
+            shield_color = RED
+
+        if self.player.shield_hits > 0:
+            shield_text = font.render("Shield Hits: " + str(self.player.shield_hits), True, shield_color)
+            self.gamedisplays.blit(shield_text, (0, 110))
 
         self.draw_speedometer(speed_offset)
 
@@ -573,12 +582,12 @@ class Game:
     def check_crash(self):
         for obstacle in self.obstacles[:]:
             if self.player.get_rect().colliderect(obstacle.get_rect()):
-                if self.player.shield_health > 0:
+                if self.player.shield_hits > 0:
                     # Bounce effect
-                    self.player.shield_health -= 50
+                    self.player.shield_hits -= 2
                     self.player.y += 10  # Move player back
-                    if self.player.shield_health < 0:
-                        self.player.shield_health = 0
+                    if self.player.shield_hits < 0:
+                        self.player.shield_hits = 0
 
                     # Destroy the obstacle
                     self.obstacles.remove(obstacle)
@@ -595,18 +604,18 @@ class Game:
             bullet_rect = pygame.Rect(bullet.x, bullet.y, bullet.width, bullet.height)
 
             # Check shield collision first
-            if self.player.shield_health > 0:
+            if self.player.shield_hits > 0:
                 front_shield_rect = self.player.get_front_shield_rect()
                 back_shield_rect = self.player.get_back_shield_rect()
 
                 collided_with_shield = False
                 if front_shield_rect and bullet_rect.colliderect(front_shield_rect):
                     self.enemy_bullets.remove(bullet)
-                    self.player.shield_health -= 25
+                    self.player.shield_hits -= 1
                     collided_with_shield = True
                 elif back_shield_rect and bullet_rect.colliderect(back_shield_rect):
                     self.enemy_bullets.remove(bullet)
-                    self.player.shield_health -= 25
+                    self.player.shield_hits -= 1
                     collided_with_shield = True
 
                 if collided_with_shield:
@@ -694,7 +703,7 @@ class Player:
         self.width = CAR_WIDTH
         self.height = self.game.assets['carimg'].get_height()
         self.shield_height = 5
-        self.shield_health = 100
+        self.shield_hits = 8
         self.is_accelerating = False
         self.power_up_active = False
         self.power_up_end_time = 0
@@ -710,12 +719,12 @@ class Player:
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
     def get_front_shield_rect(self):
-        if self.shield_health <= 0:
+        if self.shield_hits <= 0:
             return None
         return pygame.Rect(self.x, self.y - self.shield_height - 2, self.width, self.shield_height)
 
     def get_back_shield_rect(self):
-        if self.shield_health <= 0:
+        if self.shield_hits <= 0:
             return None
         return pygame.Rect(self.x, self.y + self.height + 2, self.width, self.shield_height)
 
@@ -817,8 +826,13 @@ class Player:
                 (self.x + self.width * 0.5, self.y + self.height + flame_length)
             ]
             pygame.draw.polygon(self.game.gamedisplays, flame_color, points)
-        if self.shield_health > 0:
-            shield_color = (0, 255, 255)  # Cyan
+        if self.shield_hits > 0:
+            if self.shield_hits > 4:
+                shield_color = (0, 255, 255)  # Cyan
+            elif self.shield_hits > 2:
+                shield_color = YELLOW
+            else:
+                shield_color = RED
             shield_thickness = 4
             # Curved front shield
             front_arc_rect = pygame.Rect(self.x - 10, self.y - 15, self.width + 20, 30)
