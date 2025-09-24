@@ -116,6 +116,7 @@ class Game:
                 assets['sounds']['engine2'] = pygame.mixer.Sound('engine2.mp3')
                 assets['sounds']['gun'] = pygame.mixer.Sound('gun.mp3')
                 assets['sounds']['explosion'] = pygame.mixer.Sound('explosion.mp3')
+                assets['sounds']['powerup'] = pygame.mixer.Sound('power up.mp3')
                 pygame.mixer.music.load('Car Chase.mp3')
             except pygame.error as e:
                 print(f"Warning: Could not load sound files. {e}")
@@ -367,6 +368,8 @@ class Game:
         for powerup in self.powerups[:]:
             powerup_rect = pygame.Rect(powerup.x, powerup.y, powerup.width, powerup.height)
             if self.player.get_rect().colliderect(powerup_rect):
+                if self.assets['sounds'] and 'powerup' in self.assets['sounds']:
+                    self.assets['sounds']['powerup'].play()
                 self.powerups.remove(powerup)
                 self.player.activate_powerup()
 
